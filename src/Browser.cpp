@@ -44,7 +44,7 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 Browser::Browser(MyFrame* frame)
     : m_frame(frame)
     , m_curl(nullptr)
-    , m_masterlistURL("http://localhost:8000")
+    , m_masterlistURL("https://masterlist.lc-mp.org")
 {
     m_curl = curl_easy_init();
 
