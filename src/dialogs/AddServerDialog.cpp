@@ -59,4 +59,6 @@ void AddServerDialog::OnOK(wxCommandEvent& event)
     uint16_t port = std::atoi(text.substr(text.find(":") + 1).c_str());
 
     gBrowser->AddToFavorites(ip, port);
+
+    EndModal(wxID_CANCEL);
 }
