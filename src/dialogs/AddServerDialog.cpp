@@ -13,32 +13,41 @@ enum
 };
 
 AddServerDialog::AddServerDialog(const wxString& title)
-    : wxDialog(NULL, wxID_ANY, title, wxDefaultPosition, wxSize(250, 110))
+    : wxDialog(NULL, wxID_ANY, title, wxDefaultPosition, wxDefaultSize)
 {
-    wxPanel* panel = new wxPanel(this, wxID_ANY);
+    wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
 
-    wxBoxSizer* vbox = new wxBoxSizer(wxVERTICAL);
-    wxBoxSizer* hbox = new wxBoxSizer(wxHORIZONTAL);
+    /* input */
+    {
+        wxBoxSizer* aboutSizer = new wxBoxSizer(wxVERTICAL);
 
-    m_input = new wxTextCtrl(panel, wxID_ANY, "", wxPoint(5, 5), wxSize(220, 24));
+        aboutSizer->Add(m_input = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(250, 24)));
 
-    wxButton* okButton     = new wxButton(this, wxID_OK, "OK", wxDefaultPosition, wxSize(70, 24));
-    wxButton* cancelButton = new wxButton(this, wxID_CANCEL, "Cancel", wxDefaultPosition, wxSize(70, 24));
+        sizer->Add(aboutSizer, wxSizerFlags().Expand().Proportion(5).Border(wxALL, 5));
+    }
 
-    hbox->Add(okButton, 1);
-    hbox->Add(cancelButton, 1, wxLEFT, 5);
+    /* buttons */
+    {
+        wxBoxSizer* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
 
-    vbox->Add(panel, 1);
-    vbox->Add(hbox, 0, wxALIGN_CENTER | wxTOP | wxBOTTOM, 10);
+        wxButton* okButton = new wxButton(this, wxID_OK, "OK", wxDefaultPosition, wxSize(70, 24));
+        okButton->Bind(wxEVT_BUTTON, &AddServerDialog::OnOK, this);
 
-    SetSizer(vbox);
+        buttonSizer->Add(okButton, 1);
+
+        wxButton* cancelButton = new wxButton(this, wxID_OK, "Cancel", wxDefaultPosition, wxSize(70, 24));
+        cancelButton->Bind(wxEVT_BUTTON, &AddServerDialog::OnCancel, this);
+
+        buttonSizer->Add(cancelButton, 1);
+
+        sizer->Add(buttonSizer, 0, wxALIGN_CENTER | wxTOP | wxBOTTOM, 10);
+    }
+
+    SetSizerAndFit(sizer);
 
     Centre();
 
     Bind(wxEVT_CLOSE_WINDOW, &AddServerDialog::OnClose, this);
-
-    okButton->Bind(wxEVT_BUTTON, &AddServerDialog::OnOK, this);
-    cancelButton->Bind(wxEVT_BUTTON, &AddServerDialog::OnCancel, this);
 }
 
 void AddServerDialog::OnClose(wxCloseEvent&)
