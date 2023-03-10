@@ -40,8 +40,6 @@ AboutDialog::AboutDialog(const wxString& title)
 
     SetSizerAndFit(sizer);
 
-    SetMinSize(wxSize(1000, 600));
-
     Bind(wxEVT_CLOSE_WINDOW, &AboutDialog::OnClose, this);
 }
 
