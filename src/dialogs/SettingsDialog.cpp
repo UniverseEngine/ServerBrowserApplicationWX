@@ -139,4 +139,6 @@ void SettingsDialog::OnOK(wxCommandEvent& event)
     gBrowser->m_settings.nickname = m_nicknameInput->GetValue();
 
     gBrowser->SaveSettings();
+
+    EndModal(wxID_CANCEL);
 }
