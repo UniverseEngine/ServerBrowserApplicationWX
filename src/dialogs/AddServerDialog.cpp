@@ -65,6 +65,7 @@ void AddServerDialog::OnOK(wxCommandEvent& event)
     String text = m_input->GetLineText(0).ToStdString();
 
     gBrowser->AddToFavorites(ServerHost(text));
+    gBrowser->SaveSettings();
 
     EndModal(wxID_CANCEL);
 }
