@@ -11,8 +11,7 @@ enum
     DIALOG_OK = 1,
     DIALOG_CLOSE,
     DIALOG_BROWSE,
-    DIALOG_WINDOWED,
-    DIALOG_FREECAM
+    DIALOG_WINDOWED
 };
 
 SettingsDialog::SettingsDialog(const wxString& title)
@@ -74,10 +73,6 @@ SettingsDialog::SettingsDialog(const wxString& title)
             m_windowedCheckbox->SetValue(gBrowser->m_settings.windowed);
             gameSettings_sizer->Add(m_windowedCheckbox, 1);
 
-            m_freeCamCheckbox = new wxCheckBox(panel, DIALOG_FREECAM, "Free Cam");
-            m_windowedCheckbox->SetValue(gBrowser->m_settings.freeCam);
-            gameSettings_sizer->Add(m_freeCamCheckbox, 1);
-
             gameSettings_sizer->SetMinSize(150, 0);
         }
 
@@ -123,9 +118,6 @@ void SettingsDialog::OnCheckbox(wxCommandEvent& event)
     {
     case DIALOG_WINDOWED:
         settings.windowed = (bool)event.GetInt();
-        break;
-    case DIALOG_FREECAM:
-        settings.freeCam = (bool)event.GetInt();
         break;
     }
 }
