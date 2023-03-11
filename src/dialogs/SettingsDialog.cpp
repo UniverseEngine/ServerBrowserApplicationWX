@@ -59,6 +59,7 @@ SettingsDialog::SettingsDialog(const wxString& title)
             m_gamePath->SetValue(gBrowser->m_settings.gamePath.string());
 
             wxButton* browseButton = new wxButton(panel, DIALOG_BROWSE, "Browse", wxDefaultPosition, wxSize(280, 24));
+            browseButton->Bind(wxEVT_BUTTON, &SettingsDialog::OnBrowse, this);
 
             gamePath_sizer->Add(m_gamePath, 1, wxALL | wxEXPAND, 5);
             gamePath_sizer->Add(browseButton, 1, wxALL | wxEXPAND, 5);
@@ -132,6 +133,14 @@ void SettingsDialog::OnCheckbox(wxCommandEvent& event)
 void SettingsDialog::OnCancel(wxCommandEvent&)
 {
     EndModal(wxID_CANCEL);
+}
+
+void SettingsDialog::OnBrowse(wxCommandEvent&)
+{
+    wxFileDialog browseDialog(this, "Open GTA3 EXE", "", "", "GTA3 EXE (gta3.exe)|*.exe", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+    if (browseDialog.ShowModal() == wxID_CANCEL)
+        return;
+    gBrowser->m_settings.gamePath = Path(browseDialog.GetPath().ToStdString());
 }
 
 void SettingsDialog::OnOK(wxCommandEvent& event)

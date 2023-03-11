@@ -16,5 +16,6 @@ private:
     void OnClose(wxCloseEvent&);
     void OnCheckbox(wxCommandEvent&);
     void OnCancel(wxCommandEvent&);
+    void OnBrowse(wxCommandEvent&);
     void OnOK(wxCommandEvent&);
 };
