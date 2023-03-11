@@ -133,6 +133,8 @@ void SettingsDialog::OnBrowse(wxCommandEvent&)
     if (browseDialog.ShowModal() == wxID_CANCEL)
         return;
     gBrowser->m_settings.gamePath = Path(browseDialog.GetPath().ToStdString());
+
+    m_gamePath->SetValue(gBrowser->m_settings.gamePath.string());
 }
 
 void SettingsDialog::OnOK(wxCommandEvent& event)
