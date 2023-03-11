@@ -378,7 +378,7 @@ void MyFrame::OnRightClickItem(wxListEvent& event)
     menu->Bind(
         wxEVT_MENU, [&](wxCommandEvent& cmdEvent) -> void {
             auto host = *(ServerHost*)m_listViews[GetCurrentTab()]->GetItemData(event.GetIndex());
-            gBrowser->AddToFavorites(host.m_ip, host.m_port);
+            gBrowser->AddToFavorites(host);
             gBrowser->SaveSettings();
         },
         wxID_ADD);

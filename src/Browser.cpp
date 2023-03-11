@@ -301,7 +301,7 @@ void Browser::LoadSettings()
         m_settings.freeCam  = data["freeCam"];
 
         for (auto& element : data["favorites"])
-            AddToFavorites(element["ip"].get<String>(), element["port"].get<uint16_t>());
+            AddToFavorites(ServerHost(element["ip"].get<String>(), element["port"].get<uint16_t>()));
     }
     catch (json::parse_error& ex)
     {
@@ -311,10 +311,10 @@ close:
     stream.close();
 }
 
-void Browser::AddToFavorites(String ip, uint16_t port)
+void Browser::AddToFavorites(const ServerHost& host)
 {
-    ServerInfo info(ip, port);
-    m_favoriteList.insert_or_assign(info.m_host.ToString(), info);
+    ServerInfo info(host.m_ip, host.m_port);
+    m_favoriteList.insert_or_assign(host.ToString(), info);
 
     m_frame->AppendServer(ListViewTab::FAVORITES, info);
 

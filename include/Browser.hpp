@@ -42,7 +42,7 @@ public:
     bool     LaunchGame(String host, uint16_t port);
     void     SaveSettings();
     void     LoadSettings();
-    void     AddToFavorites(String ip, uint16_t port);
+    void     AddToFavorites(const ServerHost& host);
     void     RemoveFromFavorites(const ServerHost& host);
 };
 

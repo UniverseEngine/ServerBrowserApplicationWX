@@ -17,11 +17,16 @@ public:
     ServerHost(String host)
     {
         auto split = host.find_first_of(":");
-
-        m_ip = host.substr(0, host.find_first_of(":"));
-
         if (split != std::string::npos)
+        {
+            m_ip   = host.substr(0, host.find_first_of(":"));
             m_port = std::atoi(host.substr(split + 1).c_str());
+        }
+        else
+        {
+            m_ip  = host;
+            m_port = 7777;
+        }
     }
 
     String ToString() const

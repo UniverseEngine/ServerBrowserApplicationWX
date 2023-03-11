@@ -64,10 +64,7 @@ void AddServerDialog::OnOK(wxCommandEvent& event)
 {
     String text = m_input->GetLineText(0).ToStdString();
 
-    String   ip   = text.substr(0, text.find(":"));
-    uint16_t port = std::atoi(text.substr(text.find(":") + 1).c_str());
-
-    gBrowser->AddToFavorites(ip, port);
+    gBrowser->AddToFavorites(ServerHost(text));
 
     EndModal(wxID_CANCEL);
 }
