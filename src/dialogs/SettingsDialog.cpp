@@ -137,6 +137,7 @@ void SettingsDialog::OnCancel(wxCommandEvent&)
 void SettingsDialog::OnOK(wxCommandEvent& event)
 {
     gBrowser->m_settings.nickname = m_nicknameInput->GetValue();
+    gBrowser->m_settings.gamePath = Path(m_gamePath->GetValue().ToStdString());
 
     gBrowser->SaveSettings();
 
