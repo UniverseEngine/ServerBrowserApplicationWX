@@ -4,6 +4,8 @@
 
 #include "MyFrame.hpp"
 
+#include <wx/gbsizer.h>
+
 enum
 {
     DIALOG_OK = 1
@@ -15,15 +17,28 @@ AboutDialog::AboutDialog(const wxString& title)
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
 
     {
-        wxBoxSizer* aboutSizer = new wxBoxSizer(wxVERTICAL);
+        wxBoxSizer* aboutInfoSizer = new wxBoxSizer(wxVERTICAL);
 
-        aboutSizer->Add(new wxStaticText(this, wxID_ANY, "ServerBrowserApplication", wxDefaultPosition, wxDefaultSize));
-        aboutSizer->Add(new wxStaticText(this, wxID_ANY, " ", wxDefaultPosition, wxDefaultSize));
-        aboutSizer->Add(new wxStaticText(this, wxID_ANY, "UniverseDevelopmentFramework © 2023", wxDefaultPosition, wxDefaultSize));
-        aboutSizer->Add(new wxStaticText(this, wxID_ANY, "Developers: lucx, perikiyoxd", wxDefaultPosition, wxDefaultSize));
-        aboutSizer->Add(new wxStaticText(this, wxID_ANY, "Website: http://lc-mp.org", wxDefaultPosition, wxDefaultSize));
+        wxGridBagSizer* gbs = new wxGridBagSizer(0, 15);
+        {
+            /* bitmap */
+            {
+                auto bitmap = wxBitmap();
+                bitmap.CopyFromIcon(wxICON(IDI_APPICON));
+                auto staticBitmap = new wxStaticBitmap(this, wxID_ANY, bitmap);
 
-        sizer->Add(aboutSizer, 5, wxALL | wxEXPAND, 5);
+                gbs->Add(staticBitmap, wxGBPosition(0, 0));
+            }
+
+            gbs->Add(new wxStaticText(this, wxID_ANY, "ServerBrowserApplication", wxDefaultPosition, wxDefaultSize), wxGBPosition(0, 1));
+            gbs->Add(new wxStaticText(this, wxID_ANY, "Copyright \xa9 UniverseDevelopmentFramework 2023", wxDefaultPosition, wxDefaultSize), wxGBPosition(1, 1));
+            gbs->Add(new wxStaticText(this, wxID_ANY, "Developers: lucx, perikiyoxd", wxDefaultPosition, wxDefaultSize), wxGBPosition(2, 1));
+            gbs->Add(new wxStaticText(this, wxID_ANY, "Website: http://lc-mp.org", wxDefaultPosition, wxDefaultSize), wxGBPosition(3, 1));
+        }
+
+        aboutInfoSizer->Add(gbs, 1, wxALL | wxEXPAND, 5);
+
+        sizer->Add(aboutInfoSizer, 5, wxALL | wxEXPAND, 5);
     }
 
     /* buttons */
