@@ -21,7 +21,7 @@ AddServerDialog::AddServerDialog(const wxString& title)
     {
         wxBoxSizer* aboutSizer = new wxBoxSizer(wxVERTICAL);
 
-        aboutSizer->Add(m_input = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(250, 24)));
+        aboutSizer->Add(m_input = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(250, 24), wxTE_PROCESS_ENTER));
 
         sizer->Add(aboutSizer, wxSizerFlags().Expand().Proportion(5).Border(wxALL, 5));
     }
@@ -48,6 +48,7 @@ AddServerDialog::AddServerDialog(const wxString& title)
     Centre();
 
     Bind(wxEVT_CLOSE_WINDOW, &AddServerDialog::OnClose, this);
+    Bind(wxEVT_TEXT_ENTER, &AddServerDialog::OnOK, this);
 }
 
 void AddServerDialog::OnClose(wxCloseEvent&)
