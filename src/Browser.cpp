@@ -122,29 +122,37 @@ void Browser::ReadFromSocket()
     switch (type)
     {
     case 's': {
-        struct
-        {
-            String   version;
-            String   name;
-            String   game_mode;
-            bool     passworded;
-            uint32_t players;
-            uint32_t max_players;
-        } server_info;
+        const char* ptr = buffer + sizeof(char);
 
-        memcpy(&server_info, buffer + sizeof(char), dataLength - sizeof(char));
+        String version = ptr;
+        ptr += strlen(ptr) + 1;
+
+        String name = ptr;
+        ptr += strlen(ptr) + 1;
+
+        String game_mode = ptr;
+        ptr += strlen(ptr) + 1;
+
+        bool passworded = (char)*ptr;
+        ptr += sizeof(char);
+
+        uint32_t players = (uint32_t)*ptr;
+        ptr += sizeof(uint32_t);
+
+        uint32_t max_players = (uint32_t)*ptr;
+        ptr += sizeof(uint32_t);
 
         for (auto& [id, info] : list)
         {
             if (info.m_host.m_ip != ip || info.m_host.m_port != port)
                 continue;
 
-            info.m_version    = server_info.version;
-            info.m_name       = server_info.name;
-            info.m_players    = server_info.players;
-            info.m_maxPlayers = server_info.max_players;
-            info.m_passworded = server_info.passworded;
-            info.m_gamemode   = server_info.game_mode;
+            info.m_version    = version;
+            info.m_name       = name;
+            info.m_players    = players;
+            info.m_maxPlayers = max_players;
+            info.m_passworded = passworded;
+            info.m_gamemode   = game_mode;
 
             info.m_ping   = Utils::GetTickCount() - info.m_lastPingRecv;
             info.m_online = true;
