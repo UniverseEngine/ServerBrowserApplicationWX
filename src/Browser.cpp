@@ -136,11 +136,11 @@ void Browser::ReadFromSocket()
         bool passworded = (char)*ptr;
         ptr += sizeof(char);
 
-        uint32_t players = (uint32_t)*ptr;
-        ptr += sizeof(uint32_t);
+        uint8_t players = (uint8_t)*ptr;
+        ptr += sizeof(uint8_t);
 
-        uint32_t max_players = (uint32_t)*ptr;
-        ptr += sizeof(uint32_t);
+        uint8_t max_players = (uint8_t)*ptr;
+        ptr += sizeof(uint8_t);
 
         for (auto& [id, info] : list)
         {
