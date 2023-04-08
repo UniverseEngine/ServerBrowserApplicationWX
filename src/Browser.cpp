@@ -333,15 +333,12 @@ void Browser::LoadSettings()
             }
             AddToFavorites(ServerHost(element["ip"].get<String>(), element["port"].get<uint16_t>()));
         }
-            //AddToFavorites(ServerHost(element["ip"].get<String>(), element["port"].get<uint16_t>()));
     }
     catch (json::parse_error& ex)
     {
-        // TODO: show error using WxWidgets Messagebox
-        // Create a message box with an OK button. wxOK is a standard ID in wxWidgets.
         wxMessageBox("Failed to parse settings file", "Error", wxOK | wxICON_ERROR);        
     }
-    catch (std::exception& ex)
+    catch (Exception& ex)
     {
         wxMessageBox(ex.what(), "Error", wxOK | wxICON_ERROR);
     }
