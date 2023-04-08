@@ -81,6 +81,30 @@ SettingsDialog::SettingsDialog(const wxString& title)
         panel->SetSizerAndFit(sizer);
     }
 
+    /* Developer Settings */
+    {
+        auto panel = new wxPanel(m_notebook);
+        m_notebook->AddPage(panel, "Developer", true);
+
+        wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
+
+        /* developer settings */
+        auto developerSettings_sizer = new wxStaticBoxSizer(wxVERTICAL, panel, "Developer Settings");
+        {
+            /* checkbox: Show console */
+            m_showConsoleCheckbox = new wxCheckBox(panel, DIALOG_WINDOWED, "Show console");
+            m_showConsoleCheckbox->SetValue(gBrowser->m_settings.showConsole);
+            developerSettings_sizer->Add(m_showConsoleCheckbox, 1);
+
+            developerSettings_sizer->SetMinSize(150, 0);
+        }
+
+
+        sizer->Add(developerSettings_sizer, 0, wxALL | wxEXPAND, 5);
+
+        panel->SetSizerAndFit(sizer);
+    }
+
     m_notebook->SetSelection(0);
 
     /* buttons */
@@ -141,6 +165,8 @@ void SettingsDialog::OnOK(wxCommandEvent& event)
 {
     gBrowser->m_settings.nickname = m_nicknameInput->GetValue();
     gBrowser->m_settings.gamePath = Path(m_gamePath->GetValue().ToStdString());
+    gBrowser->m_settings.windowed = m_windowedCheckbox->GetValue();
+    gBrowser->m_settings.showConsole = m_showConsoleCheckbox->GetValue();
 
     gBrowser->SaveSettings();
 

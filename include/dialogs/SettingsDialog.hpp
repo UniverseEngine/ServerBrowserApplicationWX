@@ -11,6 +11,7 @@ private:
     wxTextCtrl* m_nicknameInput;
     wxTextCtrl* m_gamePath;
     wxCheckBox* m_windowedCheckbox;
+    wxCheckBox* m_showConsoleCheckbox;
 
     void OnClose(wxCloseEvent&);
     void OnCheckbox(wxCommandEvent&);

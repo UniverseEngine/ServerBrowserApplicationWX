@@ -248,7 +248,12 @@ bool Browser::LaunchGame(String host, uint16_t port)
         data.game.arguments += "-freecam";
 
     Path curPath = std::filesystem::current_path();
+
     data.mods.push_back({ curPath / "IIIGameModule.dll", "IIIGameModule" });
+
+    
+    if(m_settings.showConsole)
+        data.mods.push_back({ curPath / "ConsoleModule.dll", "ConsoleModule" });
 
     SetDllDirectory(curPath.wstring().c_str());
 
@@ -268,11 +273,12 @@ void Browser::SaveSettings()
     json data;
 
     /* settings */
-    data["nickname"] = m_settings.nickname;
-    data["gamePath"] = Utils::Win32::ToString(m_settings.gamePath);
-    data["proxy"]    = m_settings.proxy;
-    data["windowed"] = m_settings.windowed;
-    data["freeCam"]  = m_settings.freeCam;
+    data["nickname"]    = m_settings.nickname;
+    data["gamePath"]    = Utils::Win32::ToString(m_settings.gamePath);
+    data["proxy"]       = m_settings.proxy;
+    data["windowed"]    = m_settings.windowed;
+    data["freeCam"]     = m_settings.freeCam;
+    data["showConsole"] = m_settings.showConsole;
 
     /* favorites */
     for (auto& [id, info] : m_favoriteList)
@@ -302,17 +308,42 @@ void Browser::LoadSettings()
     {
         json data = json::parse(contents);
 
-        m_settings.nickname = data["nickname"];
-        m_settings.gamePath = Utils::Win32::ToWideString(data["gamePath"]);
-        m_settings.proxy    = data["proxy"];
-        m_settings.windowed = data["windowed"];
-        m_settings.freeCam  = data["freeCam"];
+        m_settings.nickname    = (data["nickname"] == nullptr) ? "" : data["nickname"].get<String>();
+        m_settings.gamePath    = (data["gamePath"] == nullptr) ? L"" : Utils::Win32::ToWideString(data["gamePath"].get<String>());
+        m_settings.proxy       = (data["proxy"] == nullptr) ? "" : data["proxy"].get<String>();
+        m_settings.windowed    = (data["windowed"] == nullptr) ? false : data["windowed"].get<bool>();
+        m_settings.freeCam     = (data["freeCam"] == nullptr) ? false : data["freeCam"].get<bool>();
+        m_settings.showConsole = (data["showConsole"] == nullptr) ? false : data["showConsole"].get<bool>();
 
         for (auto& element : data["favorites"])
+        {
+            if (element["ip"] == nullptr)
+            {
+                String errorMessage = "Failed to parse settings file: Invalid IP for element:";
+                errorMessage += element.dump();
+                wxMessageBox(errorMessage, "Error", wxOK | wxICON_ERROR);
+                continue;
+            }
+            if (element["port"] == nullptr)
+            {
+                String errorMessage = "Failed to parse settings file: Invalid port for element:";
+                errorMessage += element.dump();
+                wxMessageBox(errorMessage, "Error", wxOK | wxICON_ERROR);
+                continue;
+            }
             AddToFavorites(ServerHost(element["ip"].get<String>(), element["port"].get<uint16_t>()));
+        }
+            //AddToFavorites(ServerHost(element["ip"].get<String>(), element["port"].get<uint16_t>()));
     }
     catch (json::parse_error& ex)
     {
+        // TODO: show error using WxWidgets Messagebox
+        // Create a message box with an OK button. wxOK is a standard ID in wxWidgets.
+        wxMessageBox("Failed to parse settings file", "Error", wxOK | wxICON_ERROR);        
+    }
+    catch (std::exception& ex)
+    {
+        wxMessageBox(ex.what(), "Error", wxOK | wxICON_ERROR);
     }
 
 close:

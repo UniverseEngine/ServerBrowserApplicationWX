@@ -15,6 +15,7 @@ struct _settings
     String proxy;
     bool   windowed;
     bool   freeCam;
+    bool   showConsole;
 };
 
 class Browser {
