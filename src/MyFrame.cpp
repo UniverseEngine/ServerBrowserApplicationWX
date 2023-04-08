@@ -18,7 +18,7 @@ enum
 };
 
 MyFrame::MyFrame()
-    : wxFrame(nullptr, wxID_ANY, "ServerBrowserApp", wxDefaultPosition, wxSize(1000, 600),
+    : wxFrame(nullptr, wxID_ANY, "Server Browser", wxDefaultPosition, wxSize(1000, 600),
           wxMINIMIZE_BOX | wxSYSTEM_MENU | wxCAPTION | wxCLOSE_BOX | wxCLIP_CHILDREN)
 {
     SetIcon(wxICON(IDI_APPICON));
