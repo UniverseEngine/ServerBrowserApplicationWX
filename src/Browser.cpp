@@ -316,20 +316,13 @@ void Browser::LoadSettings()
 
         for (auto& element : data["favorites"])
         {
-            if (element["ip"] == nullptr)
-            {
-                String errorMessage = "Failed to parse settings file: Invalid IP for element:";
-                errorMessage += element.dump();
-                wxMessageBox(errorMessage, "Error", wxOK | wxICON_ERROR);
-                continue;
-            }
-            if (element["port"] == nullptr)
-            {
-                String errorMessage = "Failed to parse settings file: Invalid port for element:";
-                errorMessage += element.dump();
-                wxMessageBox(errorMessage, "Error", wxOK | wxICON_ERROR);
-                continue;
-            }
+            if(!element["ip"].is_string() || !element["port"].is_number())
+                continue; // invalid entry, skip
+
+            ServerHost serverHost;
+            String ip  = element["ip"].get<String>();
+            uint16_t port = element["port"].get<uint16_t>();
+            
             AddToFavorites(ServerHost(element["ip"].get<String>(), element["port"].get<uint16_t>()));
         }
     }
