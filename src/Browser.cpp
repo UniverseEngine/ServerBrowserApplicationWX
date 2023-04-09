@@ -251,8 +251,7 @@ bool Browser::LaunchGame(String host, uint16_t port)
 
     data.mods.push_back({ curPath / "IIIGameModule.dll", "IIIGameModule" });
 
-    
-    if(m_settings.showConsole)
+    if (m_settings.showConsole)
         data.mods.push_back({ curPath / "ConsoleModule.dll", "ConsoleModule" });
 
     SetDllDirectory(curPath.wstring().c_str());
@@ -308,12 +307,12 @@ void Browser::LoadSettings()
     {
         json data = json::parse(contents);
 
-        m_settings.nickname    = (data["nickname"] == nullptr) ? "" : data["nickname"].get<String>();
-        m_settings.gamePath    = (data["gamePath"] == nullptr) ? L"" : Utils::Win32::ToWideString(data["gamePath"].get<String>());
-        m_settings.proxy       = (data["proxy"] == nullptr) ? "" : data["proxy"].get<String>();
-        m_settings.windowed    = (data["windowed"] == nullptr) ? false : data["windowed"].get<bool>();
-        m_settings.freeCam     = (data["freeCam"] == nullptr) ? false : data["freeCam"].get<bool>();
-        m_settings.showConsole = (data["showConsole"] == nullptr) ? false : data["showConsole"].get<bool>();
+        m_settings.nickname    = (!data["nickname"].is_string()) ? "" : data["nickname"].get<String>();
+        m_settings.gamePath    = (!data["gamePath"].is_string()) ? L"" : Utils::Win32::ToWideString(data["gamePath"].get<String>());
+        m_settings.proxy       = (!data["proxy"].is_string()) ? "" : data["proxy"].get<String>();
+        m_settings.windowed    = (!data["windowed"].is_boolean()) ? false : data["windowed"].get<bool>();
+        m_settings.freeCam     = (!data["freeCam"].is_boolean()) ? false : data["freeCam"].get<bool>();
+        m_settings.showConsole = (!data["showConsole"].is_boolean()) ? false : data["showConsole"].get<bool>();
 
         for (auto& element : data["favorites"])
         {
@@ -336,7 +335,7 @@ void Browser::LoadSettings()
     }
     catch (json::parse_error& ex)
     {
-        wxMessageBox("Failed to parse settings file", "Error", wxOK | wxICON_ERROR);        
+        wxMessageBox("Failed to parse settings file", "Error", wxOK | wxICON_ERROR);
     }
     catch (Exception& ex)
     {
