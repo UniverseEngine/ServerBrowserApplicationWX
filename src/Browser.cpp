@@ -244,8 +244,6 @@ bool Browser::LaunchGame(String host, uint16_t port)
 
     if (m_settings.windowed)
         data.game.arguments += "-windowed";
-    if (m_settings.freeCam)
-        data.game.arguments += "-freecam";
 
     Path curPath = std::filesystem::current_path();
 
@@ -276,7 +274,6 @@ void Browser::SaveSettings()
     data["gamePath"]    = Utils::Win32::ToString(m_settings.gamePath);
     data["proxy"]       = m_settings.proxy;
     data["windowed"]    = m_settings.windowed;
-    data["freeCam"]     = m_settings.freeCam;
     data["showConsole"] = m_settings.showConsole;
 
     /* favorites */
@@ -311,7 +308,6 @@ void Browser::LoadSettings()
         m_settings.gamePath    = (!data["gamePath"].is_string()) ? L"" : Utils::Win32::ToWideString(data["gamePath"].get<String>());
         m_settings.proxy       = (!data["proxy"].is_string()) ? "" : data["proxy"].get<String>();
         m_settings.windowed    = (!data["windowed"].is_boolean()) ? false : data["windowed"].get<bool>();
-        m_settings.freeCam     = (!data["freeCam"].is_boolean()) ? false : data["freeCam"].get<bool>();
         m_settings.showConsole = (!data["showConsole"].is_boolean()) ? false : data["showConsole"].get<bool>();
 
         for (auto& element : data["favorites"])

@@ -14,7 +14,6 @@ struct _settings
     Path   gamePath;
     String proxy;
     bool   windowed;
-    bool   freeCam;
     bool   showConsole;
 };
 
