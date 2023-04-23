@@ -234,7 +234,8 @@ void MyFrame::AddTab(ListViewTab tab, const String& name)
 
 void MyFrame::OnPageChange(wxBookCtrlEvent& event)
 {
-    auto curTab = GetCurrentTab();
+    ListViewTab curTab = (ListViewTab)event.GetSelection();
+    
     switch (curTab)
     {
     case ListViewTab::FAVORITES:
