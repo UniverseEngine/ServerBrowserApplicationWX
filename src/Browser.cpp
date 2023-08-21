@@ -44,7 +44,6 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 Browser::Browser(MyFrame* frame)
     : m_frame(frame)
     , m_curl(nullptr)
-    , m_masterlistURL("https://masterlist.lc-mp.org")
 {
     m_curl = curl_easy_init();
 
@@ -52,7 +51,6 @@ Browser::Browser(MyFrame* frame)
         LPCTSTR pclassname = nullptr;
 
         m_hwnd = wxCreateHiddenWindow(&pclassname, TEXT("_wxSocket_Internal_Window_Class"), wndProc);
-
         if (!m_hwnd)
             abort();
     }
@@ -273,6 +271,7 @@ void Browser::SaveSettings()
     data["nickname"]    = m_settings.nickname;
     data["gamePath"]    = Utils::Win32::ToString(m_settings.gamePath);
     data["proxy"]       = m_settings.proxy;
+    data["masterlist"]  = m_settings.masterlist;
     data["windowed"]    = m_settings.windowed;
     data["showConsole"] = m_settings.showConsole;
 
@@ -307,6 +306,7 @@ void Browser::LoadSettings()
         m_settings.nickname    = (!data["nickname"].is_string()) ? "" : data["nickname"].get<String>();
         m_settings.gamePath    = (!data["gamePath"].is_string()) ? L"" : Utils::Win32::ToWideString(data["gamePath"].get<String>());
         m_settings.proxy       = (!data["proxy"].is_string()) ? "" : data["proxy"].get<String>();
+        m_settings.masterlist  = (!data["masterlist"].is_string()) ? DEFAULT_MASTERLIST : data["masterlist"].get<String>();
         m_settings.windowed    = (!data["windowed"].is_boolean()) ? false : data["windowed"].get<bool>();
         m_settings.showConsole = (!data["showConsole"].is_boolean()) ? false : data["showConsole"].get<bool>();
 
@@ -316,7 +316,7 @@ void Browser::LoadSettings()
                 continue; // invalid entry, skip
 
             ServerHost serverHost;
-            String ip  = element["ip"].get<String>();
+            String ip     = element["ip"].get<String>();
             uint16_t port = element["port"].get<uint16_t>();
             
             AddToFavorites(ServerHost(element["ip"].get<String>(), element["port"].get<uint16_t>()));

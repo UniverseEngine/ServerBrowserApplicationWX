@@ -4,26 +4,34 @@
 
 #include "ServerInfo.hpp"
 
+#define DEFAULT_MASTERLIST "https://masterlist.lc-mp.org"
+
 class MyFrame;
 
 enum class ListViewTab : uint8_t;
 
-struct _settings
-{
+class BrowserSettings {
+public:
+    BrowserSettings()
+        : masterlist(DEFAULT_MASTERLIST)
+        , windowed(false)
+        , showConsole(false)
+    {}
+
     String nickname;
     Path   gamePath;
     String proxy;
+    String masterlist;
     bool   windowed;
     bool   showConsole;
 };
 
 class Browser {
 public:
-    HWND      m_hwnd;
-    MyFrame*  m_frame;
-    CURL*     m_curl;
-    _settings m_settings;
-    String    m_masterlistURL;
+    HWND            m_hwnd;
+    MyFrame*        m_frame;
+    CURL*           m_curl;
+    BrowserSettings m_settings;
 
     using ServerMap = UnorderedMap<String, ServerInfo>;
     ServerMap m_serversList;

@@ -262,9 +262,9 @@ void MyFrame::OnPageChange(wxBookCtrlEvent& event)
 
                 String url;
                 if (curTab == ListViewTab::INTERNET)
-                    url = gBrowser->m_masterlistURL + "/servers";
+                    url = gBrowser->m_settings.masterlist + "/servers";
                 else if (curTab == ListViewTab::OFFICIAL)
-                    url = gBrowser->m_masterlistURL + "/official";
+                    url = gBrowser->m_settings.masterlist + "/official";
 
                 CURLcode code;
                 char     errbuf[CURL_ERROR_SIZE] = { 0 };

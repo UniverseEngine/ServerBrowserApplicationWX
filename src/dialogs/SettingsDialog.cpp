@@ -41,6 +41,17 @@ SettingsDialog::SettingsDialog(const wxString& title)
 
         sizer->Add(nickname_sizer, 0, wxALL | wxEXPAND, 5);
 
+        /* masterlist */
+        auto masterlist_sizer = new wxStaticBoxSizer(wxVERTICAL, panel, "Masterlist");
+        {
+            m_masterlistInput = new wxTextCtrl(panel, wxID_ANY, "", wxDefaultPosition, wxSize(240, 24));
+            m_masterlistInput->SetValue(gBrowser->m_settings.masterlist);
+
+            masterlist_sizer->Add(m_masterlistInput, 1, wxALL | wxEXPAND, 5);
+        }
+
+        sizer->Add(masterlist_sizer, 0, wxALL | wxEXPAND, 5);
+
         panel->SetSizerAndFit(sizer);
     }
 
@@ -99,7 +110,6 @@ SettingsDialog::SettingsDialog(const wxString& title)
             developerSettings_sizer->SetMinSize(150, 0);
         }
 
-
         sizer->Add(developerSettings_sizer, 0, wxALL | wxEXPAND, 5);
 
         panel->SetSizerAndFit(sizer);
@@ -111,7 +121,7 @@ SettingsDialog::SettingsDialog(const wxString& title)
     {
         wxBoxSizer* buttonSizer = new wxBoxSizer(wxHORIZONTAL);
 
-        wxButton* okButton     = new wxButton(this, wxID_OK, "OK", wxDefaultPosition, wxSize(70, 24));
+        wxButton* okButton = new wxButton(this, wxID_OK, "OK", wxDefaultPosition, wxSize(70, 24));
         okButton->Bind(wxEVT_BUTTON, &SettingsDialog::OnOK, this);
 
         buttonSizer->Add(okButton, 1);
@@ -163,9 +173,10 @@ void SettingsDialog::OnBrowse(wxCommandEvent&)
 
 void SettingsDialog::OnOK(wxCommandEvent& event)
 {
-    gBrowser->m_settings.nickname = m_nicknameInput->GetValue();
-    gBrowser->m_settings.gamePath = Path(m_gamePath->GetValue().ToStdString());
-    gBrowser->m_settings.windowed = m_windowedCheckbox->GetValue();
+    gBrowser->m_settings.nickname    = m_nicknameInput->GetValue();
+    gBrowser->m_settings.gamePath    = Path(m_gamePath->GetValue().ToStdString());
+    gBrowser->m_settings.masterlist  = m_masterlistInput->GetValue();
+    gBrowser->m_settings.windowed    = m_windowedCheckbox->GetValue();
     gBrowser->m_settings.showConsole = m_showConsoleCheckbox->GetValue();
 
     gBrowser->SaveSettings();

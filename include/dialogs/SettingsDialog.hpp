@@ -9,6 +9,7 @@ public:
 private:
     wxNotebook* m_notebook;
     wxTextCtrl* m_nicknameInput;
+    wxTextCtrl* m_masterlistInput;
     wxTextCtrl* m_gamePath;
     wxCheckBox* m_windowedCheckbox;
     wxCheckBox* m_showConsoleCheckbox;
