@@ -7,7 +7,6 @@ set(SOURCES
     "src/MyApp.cpp"
     "src/MyFrame.cpp"
     "src/pch.cpp"
-    "src/ServerInfo.cpp"
     "ServerBrowserApplicationWX.rc"
     "ServerBrowserApplicationWX.manifest"
 )

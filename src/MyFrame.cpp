@@ -240,7 +240,7 @@ void MyFrame::OnPageChange(wxBookCtrlEvent& event)
     {
     case ListViewTab::FAVORITES:
         for (auto& [id, info] : gBrowser->m_favoriteList)
-            info.Query(gBrowser->m_socket);
+            gBrowser->QueryServer(info);
         break;
     case ListViewTab::INTERNET:
     case ListViewTab::OFFICIAL: {
@@ -283,7 +283,7 @@ void MyFrame::OnPageChange(wxBookCtrlEvent& event)
                     if (gBrowser->ParseMasterListResponse(jsonResponse.data()))
                     {
                         for (auto& [id, info] : gBrowser->m_serversList)
-                            info.Query(gBrowser->m_socket);
+                            gBrowser->QueryServer(info);
                     }
                     else
                         wxMessageBox("Can't parse master list data.", "Error", wxOK | wxICON_ERROR);
@@ -311,11 +311,13 @@ void MyFrame::OnItemSelected(wxListEvent& event)
     ServerHost host = *(ServerHost*)item.GetData();
 
     auto& serverList = gBrowser->GetServerListFromTab(curTab);
-    serverList[host.ToString()].Query(gBrowser->m_socket);
+    auto& serverInfo = serverList[host.ToString()];
+
+    gBrowser->QueryServer(serverInfo);
 
     RemoveAllPlayers();
 
-    for (auto& name : serverList[host.ToString()].m_playerList)
+    for (auto& name : serverInfo.m_playerList)
         AppendPlayer(name);
 }
 

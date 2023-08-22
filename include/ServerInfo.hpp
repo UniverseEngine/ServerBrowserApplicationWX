@@ -40,7 +40,4 @@ public:
     uint64_t m_lastPingRecv;
     uint32_t m_ping;
     bool     m_online;
-
-    bool HostMatch(const String& host);
-    void Query(const SOCKET& socket);
 };

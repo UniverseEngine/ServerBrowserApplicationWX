@@ -99,6 +99,21 @@ Browser::ServerMap& Browser::GetServerListFromTab(ListViewTab tab)
     }
 }
 
+void Browser::QueryServer(ServerInfo& serverInfo)
+{
+    serverInfo.m_lastPingRecv = Utils::GetTickCount();
+
+    struct sockaddr_in sendaddr = { AF_INET };
+    sendaddr.sin_addr.s_addr    = inet_addr(serverInfo.m_host.m_ip.c_str());
+    sendaddr.sin_port           = htons(serverInfo.m_host.m_port);
+
+    char buffer[] = { 'Q', 'U', 'E', 'R', 'Y', 's' };
+    sendto(m_socket, buffer, sizeof(buffer), 0, (sockaddr*)&sendaddr, sizeof(sendaddr));
+
+    char buffer2[] = { 'Q', 'U', 'E', 'R', 'Y', 'p' };
+    sendto(m_socket, buffer2, sizeof(buffer2), 0, (sockaddr*)&sendaddr, sizeof(sendaddr));
+}
+
 void Browser::ReadFromSocket()
 {
     char buffer[2048];
@@ -193,7 +208,7 @@ CURLcode Browser::Request(String url, String& data)
     curl_easy_setopt(
         m_curl, CURLOPT_WRITEFUNCTION, +[](char* buffer, size_t size, size_t nitems, void* outstream) {
             size_t realsize = size * nitems;
-            ((std::string*)outstream)->append(buffer, realsize);
+            ((String*)outstream)->append(buffer, realsize);
             return realsize;
         });
 
@@ -315,7 +330,6 @@ void Browser::LoadSettings()
             if(!element["ip"].is_string() || !element["port"].is_number())
                 continue; // invalid entry, skip
 
-            ServerHost serverHost;
             String ip     = element["ip"].get<String>();
             uint16_t port = element["port"].get<uint16_t>();
             
@@ -342,7 +356,7 @@ void Browser::AddToFavorites(const ServerHost& host)
 
     m_frame->AppendServer(ListViewTab::FAVORITES, info);
 
-    info.Query(m_socket);
+    QueryServer(info);
 }
 
 void Browser::RemoveFromFavorites(const ServerHost& host)

@@ -44,6 +44,7 @@ public:
 
     ServerMap& GetServerListFromTab(ListViewTab tab);
 
+    void     QueryServer(ServerInfo& serverInfo);
     void     ReadFromSocket();
     CURLcode Request(String url, String& data);
     bool     ParseMasterListResponse(String jsonStr);
