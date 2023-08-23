@@ -351,8 +351,10 @@ close:
 
 void Browser::AddToFavorites(const ServerHost& host)
 {
-    ServerInfo info(host.m_ip, host.m_port);
-    m_favoriteList.insert_or_assign(host.ToString(), info);
+    m_favoriteList.insert_or_assign(host.ToString(), ServerInfo(host.m_ip, host.m_port));
+
+    auto& info = m_favoriteList[host.ToString()];
+    info.m_lastPingRecv = Utils::GetTickCount();
 
     m_frame->AppendServer(ListViewTab::FAVORITES, info);
 
