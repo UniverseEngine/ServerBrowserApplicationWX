@@ -244,7 +244,7 @@ bool Browser::ParseMasterListResponse(String jsonStr)
     return false;
 }
 
-bool Browser::LaunchGame(String host, uint16_t port)
+bool Browser::LaunchGame(const String& host, uint16_t port)
 {
     Launcher::LaunchData data = {};
 
@@ -269,8 +269,8 @@ bool Browser::LaunchGame(String host, uint16_t port)
 
     Launcher::LauncherSystem launcher;
     if (!launcher.Launch(data))
-        return EXIT_FAILURE;
-    return EXIT_SUCCESS;
+        return false;
+    return true;
 }
 
 void Browser::SaveSettings()

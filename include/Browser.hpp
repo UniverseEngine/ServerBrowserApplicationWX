@@ -48,7 +48,7 @@ public:
     void     ReadFromSocket();
     CURLcode Request(String url, String& data);
     bool     ParseMasterListResponse(String jsonStr);
-    bool     LaunchGame(String host, uint16_t port);
+    bool     LaunchGame(const String& host, uint16_t port);
     void     SaveSettings();
     void     LoadSettings();
     void     AddToFavorites(const ServerHost& host);
