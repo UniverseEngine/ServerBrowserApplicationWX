@@ -24,7 +24,7 @@ public:
         }
         else
         {
-            m_ip  = host;
+            m_ip   = host;
             m_port = 7777;
         }
     }

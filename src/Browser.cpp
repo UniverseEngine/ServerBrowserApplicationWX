@@ -46,6 +46,9 @@ Browser::Browser(MyFrame* frame)
     , m_curl(nullptr)
 {
     m_curl = curl_easy_init();
+    curl_easy_setopt(m_curl, CURLOPT_FOLLOWLOCATION, true);
+    curl_easy_setopt(m_curl, CURLOPT_CAINFO, "cacert.pem");
+    curl_easy_setopt(m_curl, CURLOPT_TIMEOUT, 3);
 
     {
         LPCTSTR pclassname = nullptr;
@@ -197,22 +200,48 @@ void Browser::ReadFromSocket()
     }
 }
 
-CURLcode Browser::Request(String url, String& data)
+BrowserRequestResult Browser::Request(String url, String& data)
 {
-    curl_easy_setopt(m_curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(m_curl, CURLOPT_PROXY, m_settings.proxy.empty() ? nullptr : m_settings.proxy.c_str());
-    curl_easy_setopt(m_curl, CURLOPT_FOLLOWLOCATION, true);
-    curl_easy_setopt(m_curl, CURLOPT_CAINFO, "cacert.pem");
-    curl_easy_setopt(m_curl, CURLOPT_TIMEOUT, 3);
-    curl_easy_setopt(m_curl, CURLOPT_WRITEDATA, &data);
-    curl_easy_setopt(
-        m_curl, CURLOPT_WRITEFUNCTION, +[](char* buffer, size_t size, size_t nitems, void* outstream) {
-            size_t realsize = size * nitems;
-            ((String*)outstream)->append(buffer, realsize);
-            return realsize;
-        });
+    BrowserRequestResult result;
+    char                 errbuf[CURL_ERROR_SIZE] = { 0 };
 
-    return curl_easy_perform(m_curl);
+    Logger::Debug("Requesting {}", url);
+
+    // Setup curl
+    // clang-format off
+    curl_easy_setopt(m_curl, CURLOPT_PROXY, m_settings.proxy.empty() ? nullptr : m_settings.proxy.c_str());
+    curl_easy_setopt(m_curl, CURLOPT_ERRORBUFFER, errbuf);
+    curl_easy_setopt(m_curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(m_curl, CURLOPT_WRITEDATA, &data);
+    curl_easy_setopt(m_curl, CURLOPT_WRITEFUNCTION, +[](char* buffer, size_t size, size_t nitems, void* outstream) {
+        size_t realsize = size * nitems;
+        ((String*)outstream)->append(buffer, realsize);
+        return realsize;
+    });
+    // clang-format on
+
+    // Perform request
+    Logger::Debug("Performing request");
+    result.code = curl_easy_perform(m_curl);
+    if (result.code != CURLE_OK)
+    {
+        result.errorMessage = curl_easy_strerror(result.code);
+        Logger::Error("Request failed: {}", result.errorMessage);
+    }
+    else
+    {
+        curl_easy_getinfo(m_curl, CURLINFO_RESPONSE_CODE, &result.httpCode);
+        Logger::Debug("Request finished with code {}", result.httpCode);
+    }
+
+    // cleanup
+    curl_easy_setopt(m_curl, CURLOPT_PROXY, nullptr);
+    curl_easy_setopt(m_curl, CURLOPT_ERRORBUFFER, nullptr);
+    curl_easy_setopt(m_curl, CURLOPT_URL, nullptr);
+    curl_easy_setopt(m_curl, CURLOPT_WRITEDATA, nullptr);
+    curl_easy_setopt(m_curl, CURLOPT_WRITEFUNCTION, nullptr);
+
+    return result;
 }
 
 bool Browser::ParseMasterListResponse(String jsonStr)
@@ -240,6 +269,7 @@ bool Browser::ParseMasterListResponse(String jsonStr)
     }
     catch (json::parse_error& ex)
     {
+        Logger::Error("Failed to parse masterlist response: {}", ex.what());
     }
     return false;
 }
@@ -327,12 +357,12 @@ void Browser::LoadSettings()
 
         for (auto& element : data["favorites"])
         {
-            if(!element["ip"].is_string() || !element["port"].is_number())
+            if (!element["ip"].is_string() || !element["port"].is_number())
                 continue; // invalid entry, skip
 
-            String ip     = element["ip"].get<String>();
+            String   ip   = element["ip"].get<String>();
             uint16_t port = element["port"].get<uint16_t>();
-            
+
             AddToFavorites(ServerHost(element["ip"].get<String>(), element["port"].get<uint16_t>()));
         }
     }
@@ -353,7 +383,7 @@ void Browser::AddToFavorites(const ServerHost& host)
 {
     m_favoriteList.insert_or_assign(host.ToString(), ServerInfo(host.m_ip, host.m_port));
 
-    auto& info = m_favoriteList[host.ToString()];
+    auto& info          = m_favoriteList[host.ToString()];
     info.m_lastPingRecv = Utils::GetTickCount();
 
     m_frame->AppendServer(ListViewTab::FAVORITES, info);
@@ -366,4 +396,37 @@ void Browser::RemoveFromFavorites(const ServerHost& host)
     m_frame->RemoveServer(ListViewTab::FAVORITES, host);
 
     m_favoriteList.erase(host.ToString());
+}
+
+void Browser::RequestMasterList(MasterListRequestType type)
+{
+    String url = m_settings.masterlist;
+
+    switch (type)
+    {
+    case MasterListRequestType::ALL_SERVERS:
+        url += "/servers";
+        break;
+    case MasterListRequestType::OFFICIAL_SERVERS:
+        url += "/official";
+        break;
+    }
+
+    String data;
+
+    auto result = Request(url, data);
+    if (result.code != CURLE_OK)
+    {
+        String   errorMessage = std::format("Failed to request masterlist: {}", result.errorMessage);
+        wxString wxErrorMessage(errorMessage.c_str(), wxConvUTF8);
+
+        Logger::Error(errorMessage);
+        wxMessageBox(wxErrorMessage, "Error", wxOK | wxICON_ERROR);
+    }
+
+    if (!ParseMasterListResponse(data))
+        return;
+
+    for (auto& [id, info] : m_serversList)
+        QueryServer(info);
 }

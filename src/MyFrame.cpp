@@ -181,7 +181,7 @@ ListViewTab MyFrame::GetCurrentTab()
 long MyFrame::FindItemByData(ListViewTab tab, const ServerHost& data)
 {
     auto& listView = m_listViews[tab];
-    long index = -1;
+    long  index    = -1;
     while ((index = listView->GetNextItem(index, wxLIST_NEXT_ALL, wxLIST_STATE_DONTCARE)) != -1)
     {
         wxListItem item;
@@ -235,63 +235,88 @@ void MyFrame::AddTab(ListViewTab tab, const String& name)
 void MyFrame::OnPageChange(wxBookCtrlEvent& event)
 {
     ListViewTab curTab = (ListViewTab)event.GetSelection();
-    
+
+    Logger::Debug("OnPageChange: {} {}", (int)curTab, (int)event.GetSelection());
+
     switch (curTab)
     {
     case ListViewTab::FAVORITES:
+        Logger::Debug("Tab changed to local resource");
         for (auto& [id, info] : gBrowser->m_favoriteList)
             gBrowser->QueryServer(info);
         break;
     case ListViewTab::INTERNET:
     case ListViewTab::OFFICIAL: {
+        Logger::Debug("Tab changed to internet resource");
         RemoveAllServers(curTab);
 
         gBrowser->m_serversList.clear();
 
+        Logger::Debug("Current tab @ prepreprelambda: {}", (int)curTab);
         if (curTab == ListViewTab::INTERNET || curTab == ListViewTab::OFFICIAL)
         {
-            static bool waitingRequest = false;
-            if (waitingRequest)
-                break;
+            Logger::Debug("Current tab @ preprelambda: {}", (int)curTab);
+            Logger::Debug("Current tab @ prelambda: {}", (int)curTab);
+            std::thread([curTab]() {
+                Logger::Debug("Requesting master list...");
+                Logger::Debug("Current tab @ lambda: {}", (int)curTab);
 
-            waitingRequest = true;
-
-            std::thread([&]() {
                 String jsonResponse;
                 jsonResponse.reserve(2048);
 
-                String url;
+                String url = gBrowser->m_settings.masterlist;
                 if (curTab == ListViewTab::INTERNET)
-                    url = gBrowser->m_settings.masterlist + "/servers";
+                    url += "/servers";
                 else if (curTab == ListViewTab::OFFICIAL)
-                    url = gBrowser->m_settings.masterlist + "/official";
-
-                CURLcode code;
-                char     errbuf[CURL_ERROR_SIZE] = { 0 };
-
-                curl_easy_setopt(gBrowser->m_curl, CURLOPT_ERRORBUFFER, errbuf);
-
-                if ((code = gBrowser->Request(url.c_str(), jsonResponse)) != CURLE_OK)
+                    url += "/official";
+                else
                 {
-                    std::size_t len      = strlen(errbuf);
-                    String      strerror = len ? errbuf : curl_easy_strerror(code);
+                    Logger::Error("Invalid tab: {}", (int)curTab);
+                    return;
+                }
 
-                    wxMessageBox(std::format("Can't get information from master list.\nError: {}", strerror), "Error", wxOK | wxICON_ERROR);
+                Logger::Debug("Requesting master list: {}", url);
+
+                static bool waitingRequest = false;
+                if (waitingRequest)
+                {
+                    Logger::Warning("Requesting master list already in progress.");
+                    return;
+                }
+
+                waitingRequest              = true;
+                BrowserRequestResult result = gBrowser->Request(url.c_str(), jsonResponse);
+                waitingRequest              = false;
+
+                Logger::Debug("Requesting master list done.");
+
+                static const char* genericError = "Can't get information from master list.";
+
+                if (result.code != CURLE_OK)
+                {
+                    Logger::Error("Can't get information from master list. Error: {}", result.errorMessage);
+                    wxMessageBox("Can't get information from master list.", "Error", wxOK | wxICON_ERROR);
+                }
+                else if (result.httpCode != 200)
+                {
+                    Logger::Error("Can't get information from master list. HTTP code: {}", result.httpCode);
+                    wxMessageBox("Can't get information from master list.", "Error", wxOK | wxICON_ERROR);
                 }
                 else
                 {
+                    Logger::Debug("Parsing master list...");
+
                     if (gBrowser->ParseMasterListResponse(jsonResponse.data()))
                     {
                         for (auto& [id, info] : gBrowser->m_serversList)
                             gBrowser->QueryServer(info);
                     }
                     else
+                    {
                         wxMessageBox("Can't parse master list data.", "Error", wxOK | wxICON_ERROR);
+                    }
                 }
-
-                waitingRequest = false;
-            })
-                .detach();
+            }).detach();
         }
         break;
     }

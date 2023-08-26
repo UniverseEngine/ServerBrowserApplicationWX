@@ -43,7 +43,7 @@ public:
 private:
     wxNotebook*                            m_notebook;
     UnorderedMap<ListViewTab, wxListView*> m_listViews;
-    wxListBox*                             m_listbox; 
+    wxListBox*                             m_listbox;
     wxStaticText*                          m_serverInfoName;
     wxStaticText*                          m_serverInfoHost;
     wxStaticText*                          m_serverInfoPlayers;

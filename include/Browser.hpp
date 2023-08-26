@@ -10,6 +10,12 @@ class MyFrame;
 
 enum class ListViewTab : uint8_t;
 
+enum class MasterListRequestType : uint8_t
+{
+    ALL_SERVERS,
+    OFFICIAL_SERVERS,
+};
+
 class BrowserSettings {
 public:
     BrowserSettings()
@@ -24,6 +30,13 @@ public:
     String masterlist;
     bool   windowed;
     bool   showConsole;
+};
+
+struct BrowserRequestResult
+{
+    CURLcode code;
+    int      httpCode;
+    String   errorMessage;
 };
 
 class Browser {
@@ -44,15 +57,18 @@ public:
 
     ServerMap& GetServerListFromTab(ListViewTab tab);
 
-    void     QueryServer(ServerInfo& serverInfo);
-    void     ReadFromSocket();
-    CURLcode Request(String url, String& data);
-    bool     ParseMasterListResponse(String jsonStr);
-    bool     LaunchGame(const String& host, uint16_t port);
-    void     SaveSettings();
-    void     LoadSettings();
-    void     AddToFavorites(const ServerHost& host);
-    void     RemoveFromFavorites(const ServerHost& host);
+    BrowserRequestResult Request(String url, String& data);
+
+    void RequestMasterList(MasterListRequestType type);
+
+    void QueryServer(ServerInfo& serverInfo);
+    void ReadFromSocket();
+    bool ParseMasterListResponse(String jsonStr);
+    bool LaunchGame(const String& host, uint16_t port);
+    void SaveSettings();
+    void LoadSettings();
+    void AddToFavorites(const ServerHost& host);
+    void RemoveFromFavorites(const ServerHost& host);
 };
 
 extern Unique<Browser> gBrowser;
