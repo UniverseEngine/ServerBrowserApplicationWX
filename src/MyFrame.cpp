@@ -329,6 +329,15 @@ void MyFrame::OnItemActivated(wxListEvent& event)
     item.SetId(event.GetIndex());
     m_listViews[curTab]->GetItem(item);
 
+    if (gBrowser->m_settings.nickname.empty())
+    {
+        wxMessageBox("You haven't set up a nickname", "Error", wxOK | wxICON_ERROR);
+
+        wxCommandEvent evt(wxEVT_MENU, ID_SETTINGS);
+        wxPostEvent(this, evt);
+        return;
+    }
+
     ServerHost host = *(ServerHost*)item.GetData();
 
     if (!gBrowser->LaunchGame(host.m_ip, host.m_port))
