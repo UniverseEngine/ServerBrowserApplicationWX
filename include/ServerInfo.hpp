@@ -1,5 +1,3 @@
-#include "pch.hpp"
-
 #include "ServerHost.hpp"
 
 class ServerInfo {

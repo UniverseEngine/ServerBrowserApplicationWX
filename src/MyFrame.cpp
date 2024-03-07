@@ -1,6 +1,3 @@
-
-#include "pch.hpp"
-
 #include <wx/clipbrd.h>
 
 #include "dialogs/AboutDialog.hpp"

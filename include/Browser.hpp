@@ -1,7 +1,5 @@
 #pragma once
 
-#include "pch.hpp"
-
 #include "ServerInfo.hpp"
 
 #define DEFAULT_MASTERLIST "https://masterlist.lc-mp.org"

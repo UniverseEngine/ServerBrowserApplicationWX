@@ -1,5 +1,3 @@
-#include "pch.hpp"
-
 #include "dialogs/AddServerDialog.hpp"
 
 #include "MyFrame.hpp"

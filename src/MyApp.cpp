@@ -1,5 +1,3 @@
-#include "pch.hpp"
-
 #include "MyApp.hpp"
 #include "MyFrame.hpp"
 

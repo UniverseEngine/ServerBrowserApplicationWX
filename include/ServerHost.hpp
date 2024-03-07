@@ -1,5 +1,3 @@
-#include "pch.hpp"
-
 class ServerHost {
 public:
     String   m_ip;

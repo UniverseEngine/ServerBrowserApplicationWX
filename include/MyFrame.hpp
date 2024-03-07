@@ -1,5 +1,3 @@
-#include "pch.hpp"
-
 #include <wx/listctrl.h>
 #include <wx/notebook.h>
 

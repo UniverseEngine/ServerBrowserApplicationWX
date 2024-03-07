@@ -2,6 +2,7 @@
 #include "Browser.hpp"
 #include "MyFrame.hpp"
 
+#include <Core/UniverseUtils.Win32.hpp>
 #include <Launcher.hpp>
 #include <wx/msw/private/hiddenwin.h>
 

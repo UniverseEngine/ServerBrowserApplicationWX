@@ -1,5 +1,3 @@
-#include "pch.hpp"
-
 #include "dialogs/SettingsDialog.hpp"
 
 #include "MyFrame.hpp"
