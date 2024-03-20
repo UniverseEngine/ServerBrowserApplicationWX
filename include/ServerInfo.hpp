@@ -1,4 +1,10 @@
+#pragma once
+
 #include "ServerHost.hpp"
+
+#include <Universe.hpp>
+
+using namespace Universe;
 
 class ServerInfo {
 public:

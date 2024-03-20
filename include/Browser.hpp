@@ -1,8 +1,14 @@
 #pragma once
 
+#include <Universe.hpp>
+
 #include "ServerInfo.hpp"
 
+#include <curl/curl.h>
+
 #define DEFAULT_MASTERLIST "https://masterlist.lc-mp.org"
+
+using namespace Universe;
 
 class MyFrame;
 

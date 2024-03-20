@@ -1,3 +1,9 @@
+#pragma once
+
+#include <Universe.hpp>
+
+using namespace Universe;
+
 class ServerHost {
 public:
     String   m_ip;

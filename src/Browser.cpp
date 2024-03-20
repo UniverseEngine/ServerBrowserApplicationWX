@@ -1,3 +1,5 @@
+#include <iostream>
+#include <fstream>
 
 #include "Browser.hpp"
 #include "MyFrame.hpp"
@@ -334,6 +336,7 @@ void Browser::SaveSettings()
 
 void Browser::LoadSettings()
 {
+
     std::ifstream stream;
     stream.open("browser.json");
     if (!stream.is_open())
