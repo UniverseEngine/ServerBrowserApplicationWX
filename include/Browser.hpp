@@ -4,7 +4,7 @@
 
 #include "ServerInfo.hpp"
 
-#define DEFAULT_MASTERLIST "https://masterlist.lc-mp.org"
+constexpr auto DEFAULT_MASTERLIST = "https://masterlist.lc-mp.org";
 
 class MyFrame;
 
@@ -41,28 +41,23 @@ struct BrowserRequestResult
 
 class Browser {
 public:
-    HWND            m_hwnd;
     MyFrame*        m_frame;
-    CURL*           m_curl;
     BrowserSettings m_settings;
 
     using ServerMap = UnorderedMap<String, ServerInfo>;
     ServerMap m_serversList;
     ServerMap m_favoriteList;
 
-    SOCKET m_socket;
-
     Browser(MyFrame*);
     ~Browser();
 
     ServerMap& GetServerListFromTab(ListViewTab tab);
 
-    BrowserRequestResult Request(String url, String& data);
+    BrowserRequestResult MakeHttpRequest(const String& url, String& data) const;
 
     void RequestMasterList(MasterListRequestType type);
 
-    void QueryServer(ServerInfo& serverInfo);
-    void ReadFromSocket();
+    void QueryServer(ServerInfo& serverInfo, bool updatePlayerList = false);
     bool ParseMasterListResponse(String jsonStr);
     bool LaunchGame(const String& host, uint16_t port);
     void SaveSettings();

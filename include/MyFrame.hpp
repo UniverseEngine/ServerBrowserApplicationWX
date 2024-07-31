@@ -29,13 +29,9 @@ public:
     MyFrame();
 
     void AppendServer(ListViewTab tab, const ServerInfo& info);
-    void AppendServer(ListViewTab tab, const ServerHost& host, bool locked, const String& name, uint32_t ping, uint32_t players, uint32_t maxPlayers, const String& version, const String& gamemode, const String& lastPlayed = "");
     void UpdateServerColumn(ListViewTab tab, const ServerHost& host, ListColumnID id, const String& data);
     void RemoveServer(ListViewTab tab, const ServerHost& host);
     void RemoveAllServers(ListViewTab tab);
-
-    void AppendPlayer(const String& name);
-    void RemoveAllPlayers();
 
     ListViewTab GetCurrentTab();
     void        SetCurrentTab(ListViewTab tab);
@@ -43,11 +39,12 @@ public:
 private:
     wxNotebook*                            m_notebook;
     UnorderedMap<ListViewTab, wxListView*> m_listViews;
-    wxListBox*                             m_listbox;
+    wxListBox*                             m_playerListbox;
     wxStaticText*                          m_serverInfoName;
     wxStaticText*                          m_serverInfoHost;
     wxStaticText*                          m_serverInfoPlayers;
     wxStaticText*                          m_serverInfoPing;
+    wxListItem                             m_selectedServerItem;
 
     long FindItemByData(ListViewTab tab, const ServerHost& data);
 

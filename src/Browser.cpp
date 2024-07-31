@@ -7,6 +7,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include <thread>
+
 using json = nlohmann::json;
 
 Unique<Browser> gBrowser;
@@ -15,26 +17,6 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
     {
-    case WM_SOCKET: {
-        if (WSAGETSELECTEVENT(lParam) == FD_READ)
-            gBrowser->ReadFromSocket();
-
-        auto
-            server_count       = 0,
-            player_count       = 0,
-            serverplayer_count = 0;
-        for (auto& [id, info] : gBrowser->m_serversList)
-        {
-            if (!info.m_online)
-                continue;
-
-            server_count++;
-            player_count += info.m_players;
-        }
-
-        gBrowser->m_frame->SetStatusText(std::format(L"Servers: {} players, playing in {} servers", player_count, server_count));
-        break;
-    }
     default:
         return DefWindowProc(hwnd, message, wParam, lParam);
     }
@@ -43,49 +25,11 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 Browser::Browser(MyFrame* frame)
     : m_frame(frame)
-    , m_curl(nullptr)
 {
-    m_curl = curl_easy_init();
-    curl_easy_setopt(m_curl, CURLOPT_FOLLOWLOCATION, true);
-    curl_easy_setopt(m_curl, CURLOPT_CAINFO, "cacert.pem");
-    curl_easy_setopt(m_curl, CURLOPT_TIMEOUT, 3);
-
-    {
-        LPCTSTR pclassname = nullptr;
-
-        m_hwnd = wxCreateHiddenWindow(&pclassname, TEXT("_wxSocket_Internal_Window_Class"), wndProc);
-        if (!m_hwnd)
-            abort();
-    }
-
-    /* socket */
-    {
-        WSADATA wsaData;
-        if (WSAStartup(MAKEWORD(2, 2), &wsaData) != NOERROR)
-            abort();
-
-        m_socket = socket(AF_INET, SOCK_DGRAM, 0);
-        if (m_socket == INVALID_SOCKET)
-            abort();
-
-        uint32_t timeout = 2000;
-        setsockopt(m_socket, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeout));
-
-        struct sockaddr_in bindaddr = { AF_INET };
-        if (bind(m_socket, (sockaddr*)&bindaddr, 16) != NO_ERROR)
-            abort();
-
-        if (WSAAsyncSelect(m_socket, m_hwnd, WM_SOCKET, FD_READ) == SOCKET_ERROR)
-            abort();
-    }
 }
 
 Browser::~Browser()
 {
-    if (m_curl)
-        curl_easy_cleanup(m_curl);
-
-    WSACleanup();
 }
 
 Browser::ServerMap& Browser::GetServerListFromTab(ListViewTab tab)
@@ -102,127 +46,81 @@ Browser::ServerMap& Browser::GetServerListFromTab(ListViewTab tab)
     }
 }
 
-void Browser::QueryServer(ServerInfo& serverInfo)
+void Browser::QueryServer(ServerInfo& serverInfo, bool updatePlayerList)
 {
-    serverInfo.m_lastPingRecv = Utils::GetTickCount();
+    std::thread([&]() {
+        std::string url = std::format("http://{}:{}/server", serverInfo.m_host.m_ip, serverInfo.m_host.m_port);
+        std::string jsonStr;
 
-    struct sockaddr_in sendaddr = { AF_INET };
-    sendaddr.sin_addr.s_addr    = inet_addr(serverInfo.m_host.m_ip.c_str());
-    sendaddr.sin_port           = htons(serverInfo.m_host.m_port);
+        const std::chrono::time_point<std::chrono::system_clock> tp_now = std::chrono::system_clock::now();
 
-    char buffer[] = { 'Q', 'U', 'E', 'R', 'Y', 's' };
-    sendto(m_socket, buffer, sizeof(buffer), 0, (sockaddr*)&sendaddr, sizeof(sendaddr));
+        auto result = MakeHttpRequest(url, jsonStr);
 
-    char buffer2[] = { 'Q', 'U', 'E', 'R', 'Y', 'p' };
-    sendto(m_socket, buffer2, sizeof(buffer2), 0, (sockaddr*)&sendaddr, sizeof(sendaddr));
-}
-
-void Browser::ReadFromSocket()
-{
-    char buffer[2048];
-
-    struct sockaddr_in recvAddr;
-    int                recvAddrSize = sizeof(recvAddr);
-    int                dataLength   = recvfrom(m_socket, buffer, sizeof(buffer), 0, (sockaddr*)&recvAddr, &recvAddrSize);
-
-    if (dataLength == SOCKET_ERROR)
-        return;
-
-    String   ip   = inet_ntoa(recvAddr.sin_addr);
-    uint16_t port = ntohs(recvAddr.sin_port);
-
-    auto  curTab = m_frame->GetCurrentTab();
-    auto& list   = GetServerListFromTab(curTab);
-
-    char type = buffer[0];
-    switch (type)
-    {
-    case 's': {
-        const char* ptr = buffer + sizeof(char);
-
-        String version = ptr;
-        ptr += strlen(ptr) + 1;
-
-        String name = ptr;
-        ptr += strlen(ptr) + 1;
-
-        String game_mode = ptr;
-        ptr += strlen(ptr) + 1;
-
-        bool passworded = (char)*ptr;
-        ptr += sizeof(char);
-
-        uint8_t players = (uint8_t)*ptr;
-        ptr += sizeof(uint8_t);
-
-        uint8_t max_players = (uint8_t)*ptr;
-        ptr += sizeof(uint8_t);
-
-        for (auto& [id, info] : list)
+        if (result.code != CURLE_OK)
         {
-            if (info.m_host.m_ip != ip || info.m_host.m_port != port)
-                continue;
-
-            info.m_version    = version;
-            info.m_name       = name;
-            info.m_players    = players;
-            info.m_maxPlayers = max_players;
-            info.m_passworded = passworded;
-            info.m_gamemode   = game_mode;
-
-            info.m_ping   = Utils::GetTickCount() - info.m_lastPingRecv;
-            info.m_online = true;
-
-            m_frame->AppendServer(m_frame->GetCurrentTab(), info);
-
-            break;
+            serverInfo.m_online = false;
+            serverInfo.m_ping   = 9999;
+            return;
         }
-        break;
-    }
-    case 'p': {
-        const char* ptr = buffer + sizeof(char);
-        const char* end = buffer + dataLength - sizeof(char);
-        for (auto& [id, info] : list)
-        {
-            if (info.m_host.m_ip != ip || info.m_host.m_port != port)
-                continue;
 
-            info.m_playerList.clear();
-            while (ptr < end)
+        try
+        {
+            json data = json::parse(jsonStr);
+
+            serverInfo.m_name       = data["name"];
+            serverInfo.m_maxPlayers = data["max_players"];
+            serverInfo.m_passworded = data["passworded"];
+            serverInfo.m_gamemode   = data["gamemode"];
+            serverInfo.m_version    = data["version"];
+
+            serverInfo.m_players.clear();
+            for (int i = 0; i < data["players"].size(); i++)
             {
-                info.m_playerList.emplace_back(ptr);
-                ptr += strlen(ptr) + 1;
+                serverInfo.m_players.push_back({ data["players"][i]["name"] });
             }
-        }
 
-        break;
-    }
-    }
+            serverInfo.m_ping   = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - tp_now).count();
+            serverInfo.m_online = true;
+
+            m_frame->AppendServer(m_frame->GetCurrentTab(), serverInfo);
+        }
+        catch (std::exception& ex)
+        {
+            Logger::Error("Failed to parse server response: {}", ex.what());
+
+            serverInfo.m_online = false;
+            serverInfo.m_ping   = 9999;
+        }
+    }).detach();
 }
 
-BrowserRequestResult Browser::Request(String url, String& data)
+BrowserRequestResult Browser::MakeHttpRequest(const String& url, String& data) const
 {
+    CURL*                curl;
     BrowserRequestResult result;
     char                 errbuf[CURL_ERROR_SIZE] = { 0 };
 
     Logger::Debug("Requesting {}", url);
 
-    // Setup curl
+    curl = curl_easy_init();
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, false);
+    curl_easy_setopt(curl, CURLOPT_CAINFO, "cacert.pem");
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 3);
+
     // clang-format off
-    curl_easy_setopt(m_curl, CURLOPT_PROXY, m_settings.proxy.empty() ? nullptr : m_settings.proxy.c_str());
-    curl_easy_setopt(m_curl, CURLOPT_ERRORBUFFER, errbuf);
-    curl_easy_setopt(m_curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(m_curl, CURLOPT_WRITEDATA, &data);
-    curl_easy_setopt(m_curl, CURLOPT_WRITEFUNCTION, +[](char* buffer, size_t size, size_t nitems, void* outstream) {
+    curl_easy_setopt(curl, CURLOPT_PROXY, m_settings.proxy.empty() ? nullptr : m_settings.proxy.c_str());
+    curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, errbuf);
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, +[](char* buffer, size_t size, size_t nitems, void* outstream) {
         size_t realsize = size * nitems;
         ((String*)outstream)->append(buffer, realsize);
         return realsize;
     });
     // clang-format on
 
-    // Perform request
     Logger::Debug("Performing request");
-    result.code = curl_easy_perform(m_curl);
+    result.code = curl_easy_perform(curl);
     if (result.code != CURLE_OK)
     {
         result.errorMessage = curl_easy_strerror(result.code);
@@ -230,16 +128,16 @@ BrowserRequestResult Browser::Request(String url, String& data)
     }
     else
     {
-        curl_easy_getinfo(m_curl, CURLINFO_RESPONSE_CODE, &result.httpCode);
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &result.httpCode);
         Logger::Debug("Request finished with code {}", result.httpCode);
     }
 
-    // cleanup
-    curl_easy_setopt(m_curl, CURLOPT_PROXY, nullptr);
-    curl_easy_setopt(m_curl, CURLOPT_ERRORBUFFER, nullptr);
-    curl_easy_setopt(m_curl, CURLOPT_URL, nullptr);
-    curl_easy_setopt(m_curl, CURLOPT_WRITEDATA, nullptr);
-    curl_easy_setopt(m_curl, CURLOPT_WRITEFUNCTION, nullptr);
+    curl_easy_setopt(curl, CURLOPT_PROXY, nullptr);
+    curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, nullptr);
+    curl_easy_setopt(curl, CURLOPT_URL, nullptr);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, nullptr);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, nullptr);
+    curl_easy_cleanup(curl);
 
     return result;
 }
@@ -255,12 +153,15 @@ bool Browser::ParseMasterListResponse(String jsonStr)
             ServerInfo info(element["ip"], element["port"]);
 
             info.m_name       = element["name"];
-            info.m_players    = element["players"];
             info.m_maxPlayers = element["max_players"];
             info.m_passworded = element["passworded"];
             info.m_gamemode   = element["gamemode"];
             info.m_version    = element["version"];
-            info.m_playerList = element["player_list"];
+
+            for (int i = 0; i < data["players"].size(); i++)
+            {
+                info.m_players.push_back({ data["players"][i]["name"] });
+            }
 
             m_serversList.insert_or_assign(info.m_host.ToString(), info);
         }
@@ -383,8 +284,7 @@ void Browser::AddToFavorites(const ServerHost& host)
 {
     m_favoriteList.insert_or_assign(host.ToString(), ServerInfo(host.m_ip, host.m_port));
 
-    auto& info          = m_favoriteList[host.ToString()];
-    info.m_lastPingRecv = Utils::GetTickCount();
+    auto& info = m_favoriteList[host.ToString()];
 
     m_frame->AppendServer(ListViewTab::FAVORITES, info);
 
@@ -414,7 +314,7 @@ void Browser::RequestMasterList(MasterListRequestType type)
 
     String data;
 
-    auto result = Request(url, data);
+    auto result = MakeHttpRequest(url, data);
     if (result.code != CURLE_OK)
     {
         String   errorMessage = std::format("Failed to request masterlist: {}", result.errorMessage);

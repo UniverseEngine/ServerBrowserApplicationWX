@@ -73,9 +73,9 @@ MyFrame::MyFrame()
         {
             auto playerBoxSizer = new wxStaticBoxSizer(wxVERTICAL, mainPanel, "Players");
 
-            m_listbox = new wxListBox(mainPanel, wxID_ANY, wxDefaultPosition, wxSize(160, 570));
+            m_playerListbox = new wxListBox(mainPanel, wxID_ANY, wxDefaultPosition, wxSize(160, 570));
 
-            playerBoxSizer->Add(m_listbox, 1, wxALL | wxEXPAND, 5);
+            playerBoxSizer->Add(m_playerListbox, 1, wxALL | wxEXPAND, 5);
 
             hbox->Add(playerBoxSizer);
         }
@@ -117,31 +117,35 @@ MyFrame::MyFrame()
 
 void MyFrame::AppendServer(ListViewTab tab, const ServerInfo& info)
 {
-    AppendServer(tab, info.m_host, info.m_passworded, info.m_name, info.m_ping, info.m_players, info.m_maxPlayers, info.m_version, info.m_gamemode);
-}
-
-void MyFrame::AppendServer(ListViewTab tab, const ServerHost& host, bool locked, const String& name, uint32_t ping, uint32_t players, uint32_t maxPlayers, const String& version, const String& gamemode, const String& lastPlayed)
-{
     auto& listView = m_listViews[tab];
 
-    auto index = FindItemByData(tab, host);
+    auto index = FindItemByData(tab, info.m_host);
     if (index == -1)
     {
         index = listView->GetItemCount();
 
         wxListItem item;
         item.SetId(index);
-        item.SetData(new ServerHost(host));
+        item.SetData(new ServerHost(info.m_host));
 
         listView->InsertItem(item);
     }
 
-    listView->SetItem(index, (int)ListColumnID::ICON, "", !locked ? 0 : 1);
-    listView->SetItem(index, (int)ListColumnID::NAME, name);
-    listView->SetItem(index, (int)ListColumnID::PING, std::to_string(ping));
-    listView->SetItem(index, (int)ListColumnID::PLAYERS, std::format("{}/{}", players, maxPlayers));
-    listView->SetItem(index, (int)ListColumnID::VERSION, version);
-    listView->SetItem(index, (int)ListColumnID::GAMEMODE, gamemode);
+    ServerHost* host = (ServerHost*)m_selectedServerItem.GetData();
+    if (host && host->m_ip == info.m_host.m_ip && host->m_port == info.m_host.m_port)
+    {
+        m_playerListbox->Clear();
+
+        for (const auto& playerInfo : info.m_players)
+            m_playerListbox->Append(playerInfo.playerName);
+    }
+
+    listView->SetItem(index, (int)ListColumnID::ICON, "", !info.m_passworded ? 0 : 1);
+    listView->SetItem(index, (int)ListColumnID::NAME, info.m_name);
+    listView->SetItem(index, (int)ListColumnID::PING, std::to_string(info.m_ping));
+    listView->SetItem(index, (int)ListColumnID::PLAYERS, std::format("{}/{}", info.m_players.size(), info.m_maxPlayers));
+    listView->SetItem(index, (int)ListColumnID::VERSION, info.m_version);
+    listView->SetItem(index, (int)ListColumnID::GAMEMODE, info.m_gamemode);
 }
 
 void MyFrame::RemoveServer(ListViewTab tab, const ServerHost& host)
@@ -161,16 +165,6 @@ void MyFrame::RemoveAllServers(ListViewTab tab)
     long index = -1;
     while ((index = listView->GetNextItem(index, wxLIST_NEXT_ALL, wxLIST_STATE_DONTCARE)) != -1)
         listView->DeleteItem(index);
-}
-
-void MyFrame::AppendPlayer(const String& name)
-{
-    m_listbox->Append(name);
-}
-
-void MyFrame::RemoveAllPlayers()
-{
-    m_listbox->Clear();
 }
 
 ListViewTab MyFrame::GetCurrentTab()
@@ -285,7 +279,7 @@ void MyFrame::OnPageChange(wxBookCtrlEvent& event)
                 }
 
                 waitingRequest              = true;
-                BrowserRequestResult result = gBrowser->Request(url.c_str(), jsonResponse);
+                BrowserRequestResult result = gBrowser->MakeHttpRequest(url.c_str(), jsonResponse);
                 waitingRequest              = false;
 
                 Logger::Debug("Requesting master list done.");
@@ -329,30 +323,25 @@ void MyFrame::OnItemSelected(wxListEvent& event)
 {
     auto curTab = GetCurrentTab();
 
-    wxListItem item;
-    item.SetId(event.GetIndex());
-    m_listViews[curTab]->GetItem(item);
+    m_selectedServerItem.SetId(event.GetIndex());
+    m_listViews[curTab]->GetItem(m_selectedServerItem);
 
-    ServerHost host = *(ServerHost*)item.GetData();
+    ServerHost host = *(ServerHost*)m_selectedServerItem.GetData();
 
     auto& serverList = gBrowser->GetServerListFromTab(curTab);
     auto& serverInfo = serverList[host.ToString()];
 
+    m_playerListbox->Clear();
+
     gBrowser->QueryServer(serverInfo);
-
-    RemoveAllPlayers();
-
-    for (auto& name : serverInfo.m_playerList)
-        AppendPlayer(name);
 }
 
 void MyFrame::OnItemActivated(wxListEvent& event)
 {
     auto curTab = GetCurrentTab();
 
-    wxListItem item;
-    item.SetId(event.GetIndex());
-    m_listViews[curTab]->GetItem(item);
+    m_selectedServerItem.SetId(event.GetIndex());
+    m_listViews[curTab]->GetItem(m_selectedServerItem);
 
     if (gBrowser->m_settings.nickname.empty())
     {
@@ -363,7 +352,7 @@ void MyFrame::OnItemActivated(wxListEvent& event)
         return;
     }
 
-    ServerHost host = *(ServerHost*)item.GetData();
+    ServerHost host = *(ServerHost*)m_selectedServerItem.GetData();
 
     if (!gBrowser->LaunchGame(host.m_ip, host.m_port))
         wxMessageBox("Failed to launch the game. Is it the path correct?", "Error", wxOK | wxICON_ERROR);
@@ -394,31 +383,31 @@ void MyFrame::OnRightClickItem(wxListEvent& event)
 
     menu->Bind(
         wxEVT_MENU, [&](wxCommandEvent& cmdEvent) -> void {
-            auto host = *(ServerHost*)m_listViews[GetCurrentTab()]->GetItemData(event.GetIndex());
+        auto host = *(ServerHost*)m_listViews[GetCurrentTab()]->GetItemData(event.GetIndex());
 
-            if (wxTheClipboard->Open())
-            {
-                /* docs: "After this function has been called, the clipboard owns the data, so do not delete the data explicitly." */
-                wxTheClipboard->SetData(new wxTextDataObject(host.ToString()));
-                wxTheClipboard->Close();
-            }
-        },
+        if (wxTheClipboard->Open())
+        {
+            /* docs: "After this function has been called, the clipboard owns the data, so do not delete the data explicitly." */
+            wxTheClipboard->SetData(new wxTextDataObject(host.ToString()));
+            wxTheClipboard->Close();
+        }
+    },
         wxID_COPY);
 
     menu->Bind(
         wxEVT_MENU, [&](wxCommandEvent& cmdEvent) -> void {
-            auto host = *(ServerHost*)m_listViews[GetCurrentTab()]->GetItemData(event.GetIndex());
-            gBrowser->RemoveFromFavorites(host);
-            gBrowser->SaveSettings();
-        },
+        auto host = *(ServerHost*)m_listViews[GetCurrentTab()]->GetItemData(event.GetIndex());
+        gBrowser->RemoveFromFavorites(host);
+        gBrowser->SaveSettings();
+    },
         wxID_DELETE);
 
     menu->Bind(
         wxEVT_MENU, [&](wxCommandEvent& cmdEvent) -> void {
-            auto host = *(ServerHost*)m_listViews[GetCurrentTab()]->GetItemData(event.GetIndex());
-            gBrowser->AddToFavorites(host);
-            gBrowser->SaveSettings();
-        },
+        auto host = *(ServerHost*)m_listViews[GetCurrentTab()]->GetItemData(event.GetIndex());
+        gBrowser->AddToFavorites(host);
+        gBrowser->SaveSettings();
+    },
         wxID_ADD);
 
     PopupMenu(menu.get(), event.GetPoint());
