@@ -79,6 +79,12 @@ void Browser::QueryServer(ServerInfo& serverInfo, bool updatePlayerList)
                 serverInfo.m_players.push_back({ data["players"][i]["name"] });
             }
 
+            serverInfo.m_rules.clear();
+            for (auto& elems : data["rules"].items())
+            {
+                serverInfo.m_rules.insert_or_assign(std::string { elems.key() }, std::string { elems.value() });
+            }
+
             serverInfo.m_ping   = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - tp_now).count();
             serverInfo.m_online = true;
 

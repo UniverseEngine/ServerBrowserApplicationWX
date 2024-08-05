@@ -28,13 +28,14 @@ public:
         std::string playerName;
     };
 
-    ServerHost         m_host;
-    String             m_name;
-    uint32_t           m_maxPlayers;
-    bool               m_passworded;
-    String             m_gamemode;
-    String             m_version;
-    Vector<PlayerInfo> m_players;
+    ServerHost                                   m_host;
+    String                                       m_name;
+    uint32_t                                     m_maxPlayers;
+    bool                                         m_passworded;
+    String                                       m_gamemode;
+    String                                       m_version;
+    Vector<PlayerInfo>                           m_players;
+    std::unordered_map<std::string, std::string> m_rules;
 
     time_t    m_lastPlayed;
     long long m_ping;

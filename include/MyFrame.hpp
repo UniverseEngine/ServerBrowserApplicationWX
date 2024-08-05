@@ -16,6 +16,9 @@ enum class ListViewTab : uint8_t
 
 enum class ListColumnID : int
 {
+    KEY = 0,
+    VALUE,
+
     ICON = 0,
     NAME,
     PING,
@@ -39,6 +42,7 @@ public:
 private:
     wxNotebook*                            m_notebook;
     UnorderedMap<ListViewTab, wxListView*> m_listViews;
+    wxListView*                            m_serverRulesListView;
     wxListBox*                             m_playerListbox;
     wxStaticText*                          m_serverInfoName;
     wxStaticText*                          m_serverInfoHost;

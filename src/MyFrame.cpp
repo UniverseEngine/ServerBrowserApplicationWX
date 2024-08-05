@@ -18,7 +18,7 @@ enum
 };
 
 MyFrame::MyFrame()
-    : wxFrame(nullptr, wxID_ANY, "Server Browser", wxDefaultPosition, wxSize(1000, 600),
+    : wxFrame(nullptr, wxID_ANY, "Server Browser", wxDefaultPosition, wxSize(1000, 650),
           wxMINIMIZE_BOX | wxSYSTEM_MENU | wxCAPTION | wxCLOSE_BOX | wxCLIP_CHILDREN)
 {
     SetIcon(wxICON(IDI_APPICON));
@@ -58,7 +58,7 @@ MyFrame::MyFrame()
     {
         auto hbox = new wxBoxSizer(wxHORIZONTAL);
         {
-            m_notebook = new wxNotebook(mainPanel, wxID_ANY, wxDefaultPosition, wxSize(800, 600));
+            m_notebook = new wxNotebook(mainPanel, wxID_ANY, wxDefaultPosition, wxSize(800, 400));
 
             AddTab(ListViewTab::FAVORITES, "Favorites");
             AddTab(ListViewTab::INTERNET, "Internet");
@@ -73,7 +73,7 @@ MyFrame::MyFrame()
         {
             auto playerBoxSizer = new wxStaticBoxSizer(wxVERTICAL, mainPanel, "Players");
 
-            m_playerListbox = new wxListBox(mainPanel, wxID_ANY, wxDefaultPosition, wxSize(160, 570));
+            m_playerListbox = new wxListBox(mainPanel, wxID_ANY, wxDefaultPosition, wxSize(160, 368));
 
             playerBoxSizer->Add(m_playerListbox, 1, wxALL | wxEXPAND, 5);
 
@@ -82,9 +82,20 @@ MyFrame::MyFrame()
 
         sizer->Add(hbox, 1);
     }
-    /*
+
     {
         auto hbox = new wxBoxSizer(wxHORIZONTAL);
+        {
+            auto serverRulesBoxSizer = new wxStaticBoxSizer(wxVERTICAL, mainPanel, "Server Rules");
+
+            m_serverRulesListView = new wxListView(mainPanel);
+            m_serverRulesListView->InsertColumn((int)ListColumnID::KEY, "Key", 0, 120);
+            m_serverRulesListView->InsertColumn((int)ListColumnID::VALUE, "Value", 0, 280);
+
+            serverRulesBoxSizer->Add(m_serverRulesListView, 1, wxALL | wxEXPAND, 5);
+
+            hbox->Add(serverRulesBoxSizer, wxSizerFlags().Expand().Proportion(5));
+        }
         {
             auto serverInfoBoxSizer = new wxStaticBoxSizer(wxVERTICAL, mainPanel, "Server Info");
 
@@ -110,7 +121,6 @@ MyFrame::MyFrame()
 
         sizer->Add(hbox, wxSizerFlags().Expand().Proportion(5));
     }
-    */
 
     SetMinSize(wxSize(1000, 600));
 }
@@ -146,6 +156,18 @@ void MyFrame::AppendServer(ListViewTab tab, const ServerInfo& info)
     listView->SetItem(index, (int)ListColumnID::PLAYERS, std::format("{}/{}", info.m_players.size(), info.m_maxPlayers));
     listView->SetItem(index, (int)ListColumnID::VERSION, info.m_version);
     listView->SetItem(index, (int)ListColumnID::GAMEMODE, info.m_gamemode);
+
+    m_serverRulesListView->DeleteAllItems();
+
+    for (auto const& [key, value] : info.m_rules)
+    {
+        wxListItem item;
+        item.SetId(1);
+
+        m_serverRulesListView->InsertItem(item);
+        m_serverRulesListView->SetItem(0, (int)ListColumnID::KEY, key.c_str());
+        m_serverRulesListView->SetItem(0, (int)ListColumnID::VALUE, value.c_str());
+    }
 }
 
 void MyFrame::RemoveServer(ListViewTab tab, const ServerHost& host)
@@ -231,6 +253,8 @@ void MyFrame::OnPageChange(wxBookCtrlEvent& event)
     ListViewTab curTab = (ListViewTab)event.GetSelection();
 
     Logger::Debug("OnPageChange: {} {}", (int)curTab, (int)event.GetSelection());
+
+    m_serverRulesListView->DeleteAllItems();
 
     switch (curTab)
     {
@@ -332,6 +356,7 @@ void MyFrame::OnItemSelected(wxListEvent& event)
     auto& serverInfo = serverList[host.ToString()];
 
     m_playerListbox->Clear();
+    m_serverRulesListView->DeleteAllItems();
 
     gBrowser->QueryServer(serverInfo);
 }
