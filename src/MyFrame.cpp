@@ -89,34 +89,12 @@ MyFrame::MyFrame()
             auto serverRulesBoxSizer = new wxStaticBoxSizer(wxVERTICAL, mainPanel, "Server Rules");
 
             m_serverRulesListView = new wxListView(mainPanel);
-            m_serverRulesListView->InsertColumn((int)ListColumnID::KEY, "Key", 0, 120);
-            m_serverRulesListView->InsertColumn((int)ListColumnID::VALUE, "Value", 0, 280);
+            m_serverRulesListView->InsertColumn((int)ListColumnID::KEY, "Key", 0, 160);
+            m_serverRulesListView->InsertColumn((int)ListColumnID::VALUE, "Value", 0, 740);
 
             serverRulesBoxSizer->Add(m_serverRulesListView, 1, wxALL | wxEXPAND, 5);
 
             hbox->Add(serverRulesBoxSizer, wxSizerFlags().Expand().Proportion(5));
-        }
-        {
-            auto serverInfoBoxSizer = new wxStaticBoxSizer(wxVERTICAL, mainPanel, "Server Info");
-
-            wxFlexGridSizer* fgs = new wxFlexGridSizer(2, 7, 25);
-            {
-                fgs->Add(new wxStaticText(mainPanel, wxID_ANY, "Server Name: ", wxDefaultPosition, wxDefaultSize));
-                fgs->Add(m_serverInfoName = new wxStaticText(mainPanel, wxID_ANY, "...", wxDefaultPosition, wxDefaultSize));
-
-                fgs->Add(new wxStaticText(mainPanel, wxID_ANY, "Server IP: ", wxDefaultPosition, wxDefaultSize));
-                fgs->Add(m_serverInfoHost = new wxStaticText(mainPanel, wxID_ANY, "...", wxDefaultPosition, wxDefaultSize));
-
-                fgs->Add(new wxStaticText(mainPanel, wxID_ANY, "Server Players: ", wxDefaultPosition, wxDefaultSize));
-                fgs->Add(m_serverInfoPlayers = new wxStaticText(mainPanel, wxID_ANY, "...", wxDefaultPosition, wxDefaultSize));
-
-                fgs->Add(new wxStaticText(mainPanel, wxID_ANY, "Server Ping: ", wxDefaultPosition, wxDefaultSize));
-                fgs->Add(m_serverInfoPing = new wxStaticText(mainPanel, wxID_ANY, "...", wxDefaultPosition, wxDefaultSize));
-            }
-
-            serverInfoBoxSizer->Add(fgs, 1, wxALL | wxEXPAND, 5);
-
-            hbox->Add(serverInfoBoxSizer, wxSizerFlags().Expand().Proportion(5));
         }
 
         sizer->Add(hbox, wxSizerFlags().Expand().Proportion(5));
