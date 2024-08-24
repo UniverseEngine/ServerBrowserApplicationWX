@@ -10,6 +10,7 @@
 #include "MyFrame.hpp"
 
 #include "Browser.hpp"
+#include <thread>
 
 enum
 {
