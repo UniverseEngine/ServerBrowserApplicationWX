@@ -32,24 +32,13 @@ Browser::~Browser()
 {
 }
 
-Browser::ServerMap& Browser::GetServerListFromTab(ListViewTab tab)
+void Browser::QueryServer(std::shared_ptr<ServerInfo> serverInfo)
 {
-    switch (tab)
-    {
-    default:
-    case ListViewTab::FAVORITES:
-        return m_favoriteList;
-    case ListViewTab::INTERNET:
-    case ListViewTab::OFFICIAL:
-    case ListViewTab::LAN:
-        return m_serversList;
-    }
-}
+    std::thread([=]() {
+        if (!serverInfo)
+            return;
 
-void Browser::QueryServer(ServerInfo& serverInfo, bool updatePlayerList)
-{
-    std::thread([&]() {
-        std::string url = std::format("http://{}:{}/server", serverInfo.m_host.m_ip, serverInfo.m_host.m_port);
+        std::string url = std::format("http://{}:{}/server", serverInfo->m_host.m_ip, serverInfo->m_host.m_port);
         std::string jsonStr;
 
         const std::chrono::time_point<std::chrono::system_clock> tp_now = std::chrono::system_clock::now();
@@ -58,8 +47,8 @@ void Browser::QueryServer(ServerInfo& serverInfo, bool updatePlayerList)
 
         if (result.code != CURLE_OK)
         {
-            serverInfo.m_online = false;
-            serverInfo.m_ping   = 9999;
+            serverInfo->m_online = false;
+            serverInfo->m_ping   = 9999;
             return;
         }
 
@@ -67,35 +56,35 @@ void Browser::QueryServer(ServerInfo& serverInfo, bool updatePlayerList)
         {
             json data = json::parse(jsonStr);
 
-            serverInfo.m_name       = data["name"];
-            serverInfo.m_maxPlayers = data["max_players"];
-            serverInfo.m_passworded = data["passworded"];
-            serverInfo.m_gamemode   = data["gamemode"];
-            serverInfo.m_version    = data["version"];
+            serverInfo->m_name       = data["name"];
+            serverInfo->m_maxPlayers = data["max_players"];
+            serverInfo->m_passworded = data["passworded"];
+            serverInfo->m_gamemode   = data["gamemode"];
+            serverInfo->m_version    = data["version"];
 
-            serverInfo.m_players.clear();
+            serverInfo->m_players.clear();
             for (int i = 0; i < data["players"].size(); i++)
             {
-                serverInfo.m_players.push_back({ data["players"][i]["name"] });
+                serverInfo->m_players.push_back({ data["players"][i]["name"] });
             }
 
-            serverInfo.m_rules.clear();
+            serverInfo->m_rules.clear();
             for (auto& elems : data["rules"].items())
             {
-                serverInfo.m_rules.insert_or_assign(std::string { elems.key() }, std::string { elems.value() });
+                serverInfo->m_rules.insert_or_assign(std::string { elems.key() }, std::string { elems.value() });
             }
 
-            serverInfo.m_ping   = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - tp_now).count();
-            serverInfo.m_online = true;
+            serverInfo->m_ping   = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - tp_now).count();
+            serverInfo->m_online = true;
 
-            m_frame->AppendServer(m_frame->GetCurrentTab(), serverInfo);
+            m_frame->AppendServer(m_frame->GetCurrentTab(), serverInfo.get());
         }
         catch (std::exception& ex)
         {
             Logger::Error("Failed to parse server response: {}", ex.what());
 
-            serverInfo.m_online = false;
-            serverInfo.m_ping   = 9999;
+            serverInfo->m_online = false;
+            serverInfo->m_ping   = 9999;
         }
     }).detach();
 }
@@ -148,39 +137,6 @@ BrowserRequestResult Browser::MakeHttpRequest(const String& url, String& data) c
     return result;
 }
 
-bool Browser::ParseMasterListResponse(String jsonStr)
-{
-    try
-    {
-        json data = json::parse(jsonStr);
-
-        for (auto& element : data)
-        {
-            ServerInfo info(element["ip"], element["port"]);
-
-            info.m_name       = element["name"];
-            info.m_maxPlayers = element["max_players"];
-            info.m_passworded = element["passworded"];
-            info.m_gamemode   = element["gamemode"];
-            info.m_version    = element["version"];
-
-            for (int i = 0; i < data["players"].size(); i++)
-            {
-                info.m_players.push_back({ data["players"][i]["name"] });
-            }
-
-            m_serversList.insert_or_assign(info.m_host.ToString(), info);
-        }
-
-        return true;
-    }
-    catch (json::parse_error& ex)
-    {
-        Logger::Error("Failed to parse masterlist response: {}", ex.what());
-    }
-    return false;
-}
-
 bool Browser::LaunchGame(const String& host, uint16_t port)
 {
     Launcher::LaunchData data = {};
@@ -228,10 +184,10 @@ void Browser::SaveSettings()
     data["showConsole"] = m_settings.showConsole;
 
     /* favorites */
-    for (auto& [id, info] : m_favoriteList)
+    for (auto& [id, info] : m_serversList[ListViewTab::FAVORITES])
         data["favorites"].push_back(
-            { { "ip", info.m_host.m_ip },
-                { "port", info.m_host.m_port } });
+            { { "ip", info->m_host.m_ip },
+                { "port", info->m_host.m_port } });
 
     stream << data;
 
@@ -288,11 +244,11 @@ close:
 
 void Browser::AddToFavorites(const ServerHost& host)
 {
-    m_favoriteList.insert_or_assign(host.ToString(), ServerInfo(host.m_ip, host.m_port));
+    m_serversList[ListViewTab::FAVORITES].insert_or_assign(host.ToString(), std::make_shared<ServerInfo>(host.m_ip, host.m_port));
 
-    auto& info = m_favoriteList[host.ToString()];
+    auto& info = m_serversList[ListViewTab::FAVORITES][host.ToString()];
 
-    m_frame->AppendServer(ListViewTab::FAVORITES, info);
+    m_frame->AppendServer(ListViewTab::FAVORITES, info.get());
 
     QueryServer(info);
 }
@@ -301,7 +257,7 @@ void Browser::RemoveFromFavorites(const ServerHost& host)
 {
     m_frame->RemoveServer(ListViewTab::FAVORITES, host);
 
-    m_favoriteList.erase(host.ToString());
+    m_serversList[ListViewTab::FAVORITES].erase(host.ToString());
 }
 
 void Browser::RequestMasterList(MasterListRequestType type)
@@ -328,11 +284,34 @@ void Browser::RequestMasterList(MasterListRequestType type)
 
         Logger::Error(errorMessage);
         wxMessageBox(wxErrorMessage, "Error", wxOK | wxICON_ERROR);
+        return;
+    }
+    else if (result.httpCode != 200)
+    {
+        Logger::Error("Can't get information from master list. HTTP code: {}", result.httpCode);
+        wxMessageBox("Can't get information from master list.", "Error", wxOK | wxICON_ERROR);
+        return;
     }
 
-    if (!ParseMasterListResponse(data))
-        return;
+    auto& serverList = type == MasterListRequestType::ALL_SERVERS ? m_serversList[ListViewTab::INTERNET] : m_serversList[ListViewTab::OFFICIAL];
+    try
+    {
+        json jsonData = json::parse(data);
 
-    for (auto& [id, info] : m_serversList)
+        for (auto& element : jsonData)
+        {
+            auto serverInfo { std::make_shared<ServerInfo>(element["ip"], element["port"]) };
+
+            serverList.insert_or_assign(serverInfo->m_host.ToString(), serverInfo);
+        }
+    }
+    catch (json::parse_error& ex)
+    {
+        Logger::Error("Failed to parse masterlist response: {}", ex.what());
+        wxMessageBox("Can't parse master list data.", "Error", wxOK | wxICON_ERROR);
+        return;
+    }
+
+    for (auto& [id, info] : serverList)
         QueryServer(info);
 }

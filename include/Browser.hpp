@@ -44,21 +44,16 @@ public:
     MyFrame*        m_frame;
     BrowserSettings m_settings;
 
-    using ServerMap = UnorderedMap<String, ServerInfo>;
-    ServerMap m_serversList;
-    ServerMap m_favoriteList;
+    std::unordered_map<ListViewTab, std::unordered_map<String, std::shared_ptr<ServerInfo>>> m_serversList;
 
     Browser(MyFrame*);
     ~Browser();
-
-    ServerMap& GetServerListFromTab(ListViewTab tab);
 
     BrowserRequestResult MakeHttpRequest(const String& url, String& data) const;
 
     void RequestMasterList(MasterListRequestType type);
 
-    void QueryServer(ServerInfo& serverInfo, bool updatePlayerList = false);
-    bool ParseMasterListResponse(String jsonStr);
+    void QueryServer(std::shared_ptr<ServerInfo> serverInfo);
     bool LaunchGame(const String& host, uint16_t port);
     void SaveSettings();
     void LoadSettings();

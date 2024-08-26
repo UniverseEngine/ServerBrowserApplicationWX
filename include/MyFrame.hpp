@@ -31,7 +31,7 @@ class MyFrame : public wxFrame {
 public:
     MyFrame();
 
-    void AppendServer(ListViewTab tab, const ServerInfo& info);
+    void AppendServer(ListViewTab tab, ServerInfo* serverInfo);
     void UpdateServerColumn(ListViewTab tab, const ServerHost& host, ListColumnID id, const String& data);
     void RemoveServer(ListViewTab tab, const ServerHost& host);
     void RemoveAllServers(ListViewTab tab);

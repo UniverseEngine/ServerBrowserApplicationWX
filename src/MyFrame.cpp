@@ -104,41 +104,41 @@ MyFrame::MyFrame()
     SetMinSize(wxSize(1000, 600));
 }
 
-void MyFrame::AppendServer(ListViewTab tab, const ServerInfo& info)
+void MyFrame::AppendServer(ListViewTab tab, ServerInfo* serverInfo)
 {
     auto& listView = m_listViews[tab];
 
-    auto index = FindItemByData(tab, info.m_host);
+    auto index = FindItemByData(tab, serverInfo->m_host);
     if (index == -1)
     {
         index = listView->GetItemCount();
 
         wxListItem item;
         item.SetId(index);
-        item.SetData(new ServerHost(info.m_host));
+        item.SetData(new ServerHost(serverInfo->m_host));
 
         listView->InsertItem(item);
     }
 
     ServerHost* host = (ServerHost*)m_selectedServerItem.GetData();
-    if (host && host->m_ip == info.m_host.m_ip && host->m_port == info.m_host.m_port)
+    if (host && host->m_ip == serverInfo->m_host.m_ip && host->m_port == serverInfo->m_host.m_port)
     {
         m_playerListbox->Clear();
 
-        for (const auto& playerInfo : info.m_players)
+        for (const auto& playerInfo : serverInfo->m_players)
             m_playerListbox->Append(playerInfo.playerName);
     }
 
-    listView->SetItem(index, (int)ListColumnID::ICON, "", !info.m_passworded ? 0 : 1);
-    listView->SetItem(index, (int)ListColumnID::NAME, info.m_name);
-    listView->SetItem(index, (int)ListColumnID::PING, std::to_string(info.m_ping));
-    listView->SetItem(index, (int)ListColumnID::PLAYERS, std::format("{}/{}", info.m_players.size(), info.m_maxPlayers));
-    listView->SetItem(index, (int)ListColumnID::VERSION, info.m_version);
-    listView->SetItem(index, (int)ListColumnID::GAMEMODE, info.m_gamemode);
+    listView->SetItem(index, (int)ListColumnID::ICON, "", !serverInfo->m_passworded ? 0 : 1);
+    listView->SetItem(index, (int)ListColumnID::NAME, serverInfo->m_name);
+    listView->SetItem(index, (int)ListColumnID::PING, std::to_string(serverInfo->m_ping));
+    listView->SetItem(index, (int)ListColumnID::PLAYERS, std::format("{}/{}", serverInfo->m_players.size(), serverInfo->m_maxPlayers));
+    listView->SetItem(index, (int)ListColumnID::VERSION, serverInfo->m_version);
+    listView->SetItem(index, (int)ListColumnID::GAMEMODE, serverInfo->m_gamemode);
 
     m_serverRulesListView->DeleteAllItems();
 
-    for (auto const& [key, value] : info.m_rules)
+    for (auto const& [key, value] : serverInfo->m_rules)
     {
         wxListItem item;
         item.SetId(1);
@@ -239,82 +239,37 @@ void MyFrame::OnPageChange(wxBookCtrlEvent& event)
     {
     case ListViewTab::FAVORITES:
         Logger::Debug("Tab changed to local resource");
-        for (auto& [id, info] : gBrowser->m_favoriteList)
+        for (auto& [id, info] : gBrowser->m_serversList[ListViewTab::FAVORITES])
             gBrowser->QueryServer(info);
         break;
     case ListViewTab::INTERNET:
+        gBrowser->m_serversList[ListViewTab::INTERNET].clear();
     case ListViewTab::OFFICIAL: {
         Logger::Debug("Tab changed to internet resource");
         RemoveAllServers(curTab);
 
-        gBrowser->m_serversList.clear();
+        gBrowser->m_serversList[ListViewTab::OFFICIAL].clear();
 
-        Logger::Debug("Current tab @ prepreprelambda: {}", (int)curTab);
-        if (curTab == ListViewTab::INTERNET || curTab == ListViewTab::OFFICIAL)
-        {
-            Logger::Debug("Current tab @ preprelambda: {}", (int)curTab);
-            Logger::Debug("Current tab @ prelambda: {}", (int)curTab);
-            std::thread([curTab]() {
-                Logger::Debug("Requesting master list...");
-                Logger::Debug("Current tab @ lambda: {}", (int)curTab);
+        std::thread([curTab]() {
+            Logger::Debug("Requesting master list...");
+            Logger::Debug("Current tab @ lambda: {}", (int)curTab);
 
-                String jsonResponse;
-                jsonResponse.reserve(2048);
+            String jsonResponse;
+            jsonResponse.reserve(2048);
 
-                String url = gBrowser->m_settings.masterlist;
-                if (curTab == ListViewTab::INTERNET)
-                    url += "/servers";
-                else if (curTab == ListViewTab::OFFICIAL)
-                    url += "/official";
-                else
-                {
-                    Logger::Error("Invalid tab: {}", (int)curTab);
-                    return;
-                }
+            static bool waitingRequest = false;
+            if (waitingRequest)
+            {
+                Logger::Warning("Requesting master list already in progress.");
+                return;
+            }
 
-                Logger::Debug("Requesting master list: {}", url);
+            waitingRequest = true;
+            gBrowser->RequestMasterList(curTab == ListViewTab::INTERNET ? MasterListRequestType::ALL_SERVERS : MasterListRequestType::OFFICIAL_SERVERS);
+            waitingRequest = false;
 
-                static bool waitingRequest = false;
-                if (waitingRequest)
-                {
-                    Logger::Warning("Requesting master list already in progress.");
-                    return;
-                }
-
-                waitingRequest              = true;
-                BrowserRequestResult result = gBrowser->MakeHttpRequest(url.c_str(), jsonResponse);
-                waitingRequest              = false;
-
-                Logger::Debug("Requesting master list done.");
-
-                static const char* genericError = "Can't get information from master list.";
-
-                if (result.code != CURLE_OK)
-                {
-                    Logger::Error("Can't get information from master list. Error: {}", result.errorMessage);
-                    wxMessageBox("Can't get information from master list.", "Error", wxOK | wxICON_ERROR);
-                }
-                else if (result.httpCode != 200)
-                {
-                    Logger::Error("Can't get information from master list. HTTP code: {}", result.httpCode);
-                    wxMessageBox("Can't get information from master list.", "Error", wxOK | wxICON_ERROR);
-                }
-                else
-                {
-                    Logger::Debug("Parsing master list...");
-
-                    if (gBrowser->ParseMasterListResponse(jsonResponse.data()))
-                    {
-                        for (auto& [id, info] : gBrowser->m_serversList)
-                            gBrowser->QueryServer(info);
-                    }
-                    else
-                    {
-                        wxMessageBox("Can't parse master list data.", "Error", wxOK | wxICON_ERROR);
-                    }
-                }
-            }).detach();
-        }
+            Logger::Debug("Requesting master list done.");
+        }).detach();
         break;
     }
     default:
@@ -329,15 +284,13 @@ void MyFrame::OnItemSelected(wxListEvent& event)
     m_selectedServerItem.SetId(event.GetIndex());
     m_listViews[curTab]->GetItem(m_selectedServerItem);
 
-    ServerHost host = *(ServerHost*)m_selectedServerItem.GetData();
-
-    auto& serverList = gBrowser->GetServerListFromTab(curTab);
-    auto& serverInfo = serverList[host.ToString()];
-
     m_playerListbox->Clear();
     m_serverRulesListView->DeleteAllItems();
 
-    gBrowser->QueryServer(serverInfo);
+    ServerHost host = *(ServerHost*)m_selectedServerItem.GetData();
+
+    auto& serverList = gBrowser->m_serversList[curTab];
+    gBrowser->QueryServer(serverList[host.ToString()]);
 }
 
 void MyFrame::OnItemActivated(wxListEvent& event)
