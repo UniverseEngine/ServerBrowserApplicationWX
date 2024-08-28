@@ -311,8 +311,7 @@ void MyFrame::OnItemActivated(wxListEvent& event)
 
     ServerHost host = *(ServerHost*)m_selectedServerItem.GetData();
 
-    if (!gBrowser->LaunchGame(host.m_ip, host.m_port))
-        wxMessageBox("Failed to launch the game. Is it the path correct?", "Error", wxOK | wxICON_ERROR);
+    gBrowser->LaunchGame(host.m_ip, host.m_port);
 }
 
 void MyFrame::OnDeleteItem(wxListEvent& event)

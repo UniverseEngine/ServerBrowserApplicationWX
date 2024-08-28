@@ -54,7 +54,7 @@ public:
     void RequestMasterList(MasterListRequestType type);
 
     void QueryServer(std::shared_ptr<ServerInfo> serverInfo);
-    bool LaunchGame(const String& host, uint16_t port);
+    void LaunchGame(const String& host, uint16_t port);
     void SaveSettings();
     void LoadSettings();
     void AddToFavorites(const ServerHost& host);

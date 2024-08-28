@@ -137,7 +137,7 @@ BrowserRequestResult Browser::MakeHttpRequest(const String& url, String& data) c
     return result;
 }
 
-bool Browser::LaunchGame(const String& host, uint16_t port)
+void Browser::LaunchGame(const String& host, uint16_t port)
 {
     Launcher::LaunchData data = {};
 
@@ -161,9 +161,13 @@ bool Browser::LaunchGame(const String& host, uint16_t port)
     SetDllDirectory(curPath.wstring().c_str());
 
     Launcher::LauncherSystem launcher;
-    if (!launcher.Launch(data))
-        return false;
-    return true;
+    Launcher::LaunchResult result = launcher.Launch(data);
+    
+    if (result.first != Launcher::LaunchResultCode::Success)
+    {
+        String error_message = fmt::format("Failed to launch the game:\n\n{}", result.second);
+        wxMessageBox(error_message.c_str(), "Error", wxOK | wxICON_ERROR);
+    }
 }
 
 void Browser::SaveSettings()
@@ -177,7 +181,7 @@ void Browser::SaveSettings()
 
     /* settings */
     data["nickname"]    = m_settings.nickname;
-    data["gamePath"]    = Utils::Win32::ToString(m_settings.gamePath);
+    data["gamePath"]    = m_settings.gamePath;
     data["proxy"]       = m_settings.proxy;
     data["masterlist"]  = m_settings.masterlist;
     data["windowed"]    = m_settings.windowed;
@@ -212,7 +216,7 @@ void Browser::LoadSettings()
         json data = json::parse(contents);
 
         m_settings.nickname    = (!data["nickname"].is_string()) ? "" : data["nickname"].get<String>();
-        m_settings.gamePath    = (!data["gamePath"].is_string()) ? L"" : Utils::Win32::ToWideString(data["gamePath"].get<String>());
+        m_settings.gamePath    = (!data["gamePath"].is_string()) ? "" : data["gamePath"].get<String>();
         m_settings.proxy       = (!data["proxy"].is_string()) ? "" : data["proxy"].get<String>();
         m_settings.masterlist  = (!data["masterlist"].is_string()) ? DEFAULT_MASTERLIST : data["masterlist"].get<String>();
         m_settings.windowed    = (!data["windowed"].is_boolean()) ? false : data["windowed"].get<bool>();
