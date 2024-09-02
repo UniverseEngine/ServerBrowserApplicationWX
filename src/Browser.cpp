@@ -143,7 +143,6 @@ void Browser::LaunchGame(const String& host, uint16_t port)
 
     data.game.path  = m_settings.gamePath;
     data.game.title = "III";
-    data.game.arguments.Append("island_loading", "high");
     data.game.arguments.Append("ip", host);
     data.game.arguments.Append("port", std::to_string(port));
     data.game.arguments.Append("nickname", m_settings.nickname);
@@ -161,8 +160,8 @@ void Browser::LaunchGame(const String& host, uint16_t port)
     SetDllDirectory(curPath.wstring().c_str());
 
     Launcher::LauncherSystem launcher;
-    Launcher::LaunchResult result = launcher.Launch(data);
-    
+    Launcher::LaunchResult   result = launcher.Launch(data);
+
     if (result.first != Launcher::LaunchResultCode::Success)
     {
         String error_message = fmt::format("Failed to launch the game:\n\n{}", result.second);
