@@ -60,6 +60,8 @@ private:
     void OnDeleteItem(wxListEvent& event);
     void OnRightClickItem(wxListEvent& event);
 
+    void OnOpenCrashFolder(wxCommandEvent& event);
+    void OnOpenLogFolder(wxCommandEvent& event);
     void OnAddServer(wxCommandEvent& event);
     void OnSettings(wxCommandEvent& event);
     void OnAbout(wxCommandEvent& event);

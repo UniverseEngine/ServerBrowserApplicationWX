@@ -2,6 +2,9 @@
 #include "pch.hpp"
 
 #include <wx/clipbrd.h>
+#include <wx/stdpaths.h>
+
+#include <shellapi.h>
 
 #include "dialogs/AboutDialog.hpp"
 #include "dialogs/AddServerDialog.hpp"
@@ -15,6 +18,8 @@
 enum
 {
     ID_ADDSERVER = 1,
+    ID_OPENCRASHFOLDER,
+    ID_OPENLOGFOLDER,
     ID_SETTINGS
 };
 
@@ -25,6 +30,9 @@ MyFrame::MyFrame()
     SetIcon(wxICON(IDI_APPICON));
 
     auto menuFile = new wxMenu;
+    menuFile->Append(ID_OPENCRASHFOLDER, "Open Crash Folder");
+    menuFile->Append(ID_OPENCRASHFOLDER, "Open Log Folder");
+    menuFile->Append(wxID_SEPARATOR);
     menuFile->Append(wxID_EXIT);
 
     auto menuServers = new wxMenu;
@@ -46,6 +54,8 @@ MyFrame::MyFrame()
 
     CreateStatusBar();
 
+    Bind(wxEVT_MENU, &MyFrame::OnOpenCrashFolder, this, ID_OPENCRASHFOLDER);
+    Bind(wxEVT_MENU, &MyFrame::OnOpenLogFolder, this, ID_OPENLOGFOLDER);
     Bind(wxEVT_MENU, &MyFrame::OnAddServer, this, ID_ADDSERVER);
     Bind(wxEVT_MENU, &MyFrame::OnSettings, this, ID_SETTINGS);
     Bind(wxEVT_MENU, &MyFrame::OnAbout, this, wxID_ABOUT);
@@ -373,6 +383,22 @@ void MyFrame::OnSettings(wxCommandEvent& event)
 {
     SettingsDialog dialog("Settings");
     dialog.ShowModal();
+}
+
+void MyFrame::OnOpenCrashFolder(wxCommandEvent& event)
+{
+    std::filesystem::path exe_path { wxStandardPaths::Get().GetExecutablePath().ToStdString() };
+    std::filesystem::path exe_path_nofilename { exe_path.remove_filename() / "crashes" };
+
+    ShellExecuteA(NULL, "open", exe_path_nofilename.string().c_str(), NULL, NULL, SW_SHOWDEFAULT);
+}
+
+void MyFrame::OnOpenLogFolder(wxCommandEvent& event)
+{
+    std::filesystem::path exe_path { wxStandardPaths::Get().GetExecutablePath().ToStdString() };
+    std::filesystem::path exe_path_nofilename { exe_path.remove_filename() / "logs" };
+
+    ShellExecuteA(NULL, "open", exe_path_nofilename.string().c_str(), NULL, NULL, SW_SHOWDEFAULT);
 }
 
 void MyFrame::OnAddServer(wxCommandEvent& event)
