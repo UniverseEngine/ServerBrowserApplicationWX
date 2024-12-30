@@ -119,7 +119,7 @@ BrowserRequestResult Browser::MakeHttpRequest(const String& url, String& data) c
     if (result.code != CURLE_OK)
     {
         result.errorMessage = curl_easy_strerror(result.code);
-        Logger::Error("Request failed: {}", result.errorMessage);
+        Logger::Error("Request failed while requesting [{}]: {} ({})", url, result.errorMessage, (int)result.code);
     }
     else
     {
