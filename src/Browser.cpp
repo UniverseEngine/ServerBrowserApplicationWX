@@ -143,9 +143,9 @@ void Browser::LaunchGame(const String& host, uint16_t port)
 
     data.game.path  = m_settings.gamePath;
     data.game.title = "III";
-    data.game.arguments.Append("ip", host);
-    data.game.arguments.Append("port", std::to_string(port));
-    data.game.arguments.Append("nickname", m_settings.nickname);
+    data.game.arguments.Append("ip", host)
+                       .Append("port", std::to_string(port))
+                       .Append("nickname", m_settings.nickname);
 
     if (m_settings.windowed)
         data.game.arguments.Append("-windowed");
