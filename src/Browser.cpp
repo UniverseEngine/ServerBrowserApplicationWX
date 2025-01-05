@@ -148,7 +148,7 @@ void Browser::LaunchGame(const String& host, uint16_t port)
     data.game.arguments.Append("nickname", m_settings.nickname);
 
     if (m_settings.windowed)
-        data.game.arguments += "-windowed";
+        data.game.arguments.Append("-windowed");
 
     Path curPath = std::filesystem::current_path();
 
