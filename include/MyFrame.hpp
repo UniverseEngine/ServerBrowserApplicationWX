@@ -40,15 +40,15 @@ public:
     void        SetCurrentTab(ListViewTab tab);
 
 private:
-    wxNotebook*                            m_notebook;
-    UnorderedMap<ListViewTab, wxListView*> m_listViews;
-    wxListView*                            m_serverRulesListView;
-    wxListBox*                             m_playerListbox;
-    wxStaticText*                          m_serverInfoName;
-    wxStaticText*                          m_serverInfoHost;
-    wxStaticText*                          m_serverInfoPlayers;
-    wxStaticText*                          m_serverInfoPing;
-    wxListItem                             m_selectedServerItem;
+    wxNotebook*                                  m_notebook;
+    std::unordered_map<ListViewTab, wxListView*> m_listViews;
+    wxListView*                                  m_serverRulesListView;
+    wxListBox*                                   m_playerListbox;
+    wxStaticText*                                m_serverInfoName;
+    wxStaticText*                                m_serverInfoHost;
+    wxStaticText*                                m_serverInfoPlayers;
+    wxStaticText*                                m_serverInfoPing;
+    wxListItem                                   m_selectedServerItem;
 
     long FindItemByData(ListViewTab tab, const ServerHost& data);
 

@@ -11,7 +11,7 @@
 
 using json = nlohmann::json;
 
-Unique<Browser> gBrowser;
+std::unique_ptr<Browser> gBrowser;
 
 LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {

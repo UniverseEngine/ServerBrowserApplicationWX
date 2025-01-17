@@ -61,4 +61,4 @@ public:
     void RemoveFromFavorites(const ServerHost& host);
 };
 
-extern Unique<Browser> gBrowser;
+extern std::unique_ptr<Browser> gBrowser;
