@@ -1,19 +1,20 @@
-
-#include "pch.hpp"
+#include "MyFrame.hpp"
 
 #include <wx/clipbrd.h>
 #include <wx/stdpaths.h>
 
-#include <shellapi.h>
+// #include <shellapi.h>
 
 #include "dialogs/AboutDialog.hpp"
 #include "dialogs/AddServerDialog.hpp"
 #include "dialogs/SettingsDialog.hpp"
 
-#include "MyFrame.hpp"
-
 #include "Browser.hpp"
 #include <thread>
+
+#include <Core/UniverseLogger.hpp>
+
+using namespace Universe;
 
 enum
 {
@@ -71,9 +72,9 @@ MyFrame::MyFrame()
         {
             m_notebook = new wxNotebook(mainPanel, wxID_ANY, wxDefaultPosition, wxSize(800, 400));
 
-            AddTab(ListViewTab::FAVORITES, "Favorites");
-            AddTab(ListViewTab::INTERNET, "Internet");
-            AddTab(ListViewTab::OFFICIAL, "Official");
+            AddTab(ServerListType::FAVORITES, "Favorites");
+            AddTab(ServerListType::INTERNET, "Internet");
+            AddTab(ServerListType::OFFICIAL, "Official");
             // AddTab(ListViewTab::LAN, "LAN");
 
             m_notebook->SetSelection(0);
@@ -114,7 +115,7 @@ MyFrame::MyFrame()
     SetMinSize(wxSize(1000, 600));
 }
 
-void MyFrame::AppendServer(ListViewTab tab, ServerInfo* serverInfo)
+void MyFrame::AppendServer(ServerListType tab, ServerInfo* serverInfo)
 {
     auto& listView = m_listViews[tab];
 
@@ -135,8 +136,8 @@ void MyFrame::AppendServer(ListViewTab tab, ServerInfo* serverInfo)
     {
         m_playerListbox->Clear();
 
-        for (const auto& playerInfo : serverInfo->m_players)
-            m_playerListbox->Append(playerInfo.playerName);
+        for (const std::string& playerInfo : serverInfo->m_players)
+            m_playerListbox->Append(playerInfo);
     }
 
     listView->SetItem(index, (int)ListColumnID::ICON, "", !serverInfo->m_passworded ? 0 : 1);
@@ -159,7 +160,7 @@ void MyFrame::AppendServer(ListViewTab tab, ServerInfo* serverInfo)
     }
 }
 
-void MyFrame::RemoveServer(ListViewTab tab, const ServerHost& host)
+void MyFrame::RemoveServer(ServerListType tab, const ServerHost& host)
 {
     auto& listView = m_listViews[tab];
 
@@ -169,7 +170,7 @@ void MyFrame::RemoveServer(ListViewTab tab, const ServerHost& host)
     listView->DeleteItem(item);
 }
 
-void MyFrame::RemoveAllServers(ListViewTab tab)
+void MyFrame::RemoveAllServers(ServerListType tab)
 {
     auto& listView = m_listViews[tab];
 
@@ -178,12 +179,12 @@ void MyFrame::RemoveAllServers(ListViewTab tab)
         listView->DeleteItem(index);
 }
 
-ListViewTab MyFrame::GetCurrentTab()
+ServerListType MyFrame::GetCurrentTab()
 {
-    return (ListViewTab)m_notebook->GetSelection();
+    return (ServerListType)m_notebook->GetSelection();
 }
 
-long MyFrame::FindItemByData(ListViewTab tab, const ServerHost& data)
+long MyFrame::FindItemByData(ServerListType tab, const ServerHost& data)
 {
     auto& listView = m_listViews[tab];
     long  index    = -1;
@@ -199,12 +200,12 @@ long MyFrame::FindItemByData(ListViewTab tab, const ServerHost& data)
     return -1;
 }
 
-void MyFrame::SetCurrentTab(ListViewTab tab)
+void MyFrame::SetCurrentTab(ServerListType tab)
 {
     m_notebook->SetSelection((int)tab);
 }
 
-void MyFrame::AddTab(ListViewTab tab, const String& name)
+void MyFrame::AddTab(ServerListType tab, const std::string& name)
 {
     auto panel = new wxPanel(m_notebook);
     m_notebook->AddPage(panel, name, true);
@@ -239,33 +240,37 @@ void MyFrame::AddTab(ListViewTab tab, const String& name)
 
 void MyFrame::OnPageChange(wxBookCtrlEvent& event)
 {
-    ListViewTab curTab = (ListViewTab)event.GetSelection();
+    int selection = event.GetSelection();
+    if (selection == wxNOT_FOUND)
+    {
+        Logger::Debug("OnPageChange: wxNOT_FOUND");
+        return;
+    }
 
-    Logger::Debug("OnPageChange: {} {}", (int)curTab, (int)event.GetSelection());
+    auto curTab = GetCurrentTab();
+
+    Logger::Debug("OnPageChange: {} {}", selection, (int)curTab);
 
     m_serverRulesListView->DeleteAllItems();
 
     switch (curTab)
     {
-    case ListViewTab::FAVORITES:
+    case ServerListType::FAVORITES:
         Logger::Debug("Tab changed to local resource");
-        for (auto& [id, info] : gBrowser->m_serversList[ListViewTab::FAVORITES])
+        for (auto& [id, info] : gBrowser->m_serversList[ServerListType::FAVORITES])
             gBrowser->QueryServer(info);
         break;
-    case ListViewTab::INTERNET:
-        gBrowser->m_serversList[ListViewTab::INTERNET].clear();
-    case ListViewTab::OFFICIAL: {
+    case ServerListType::INTERNET:
+        gBrowser->m_serversList[ServerListType::INTERNET].clear();
+    case ServerListType::OFFICIAL: {
         Logger::Debug("Tab changed to internet resource");
         RemoveAllServers(curTab);
 
-        gBrowser->m_serversList[ListViewTab::OFFICIAL].clear();
+        gBrowser->m_serversList[ServerListType::OFFICIAL].clear();
 
         std::thread([curTab]() {
             Logger::Debug("Requesting master list...");
             Logger::Debug("Current tab @ lambda: {}", (int)curTab);
-
-            String jsonResponse;
-            jsonResponse.reserve(2048);
 
             static bool waitingRequest = false;
             if (waitingRequest)
@@ -275,7 +280,10 @@ void MyFrame::OnPageChange(wxBookCtrlEvent& event)
             }
 
             waitingRequest = true;
-            gBrowser->RequestMasterList(curTab == ListViewTab::INTERNET ? MasterListRequestType::ALL_SERVERS : MasterListRequestType::OFFICIAL_SERVERS);
+
+            auto currentType = curTab;
+
+            gBrowser->GetServersFromMasterlist(currentType);
             waitingRequest = false;
 
             Logger::Debug("Requesting master list done.");
@@ -338,7 +346,7 @@ void MyFrame::OnRightClickItem(wxListEvent& event)
     auto menu = std::make_unique<wxMenu>();
     menu->Append(wxID_COPY, "Copy Server IP:Port");
 
-    if (GetCurrentTab() == ListViewTab::FAVORITES)
+    if (GetCurrentTab() == ServerListType::FAVORITES)
     {
         menu->Append(wxID_DELETE, "Delete Server");
     }
@@ -357,24 +365,21 @@ void MyFrame::OnRightClickItem(wxListEvent& event)
             wxTheClipboard->SetData(new wxTextDataObject(host.ToString()));
             wxTheClipboard->Close();
         }
-    },
-        wxID_COPY);
+    }, wxID_COPY);
 
     menu->Bind(
         wxEVT_MENU, [&](wxCommandEvent& cmdEvent) -> void {
         auto host = *(ServerHost*)m_listViews[GetCurrentTab()]->GetItemData(event.GetIndex());
         gBrowser->RemoveFromFavorites(host);
         gBrowser->SaveSettings();
-    },
-        wxID_DELETE);
+    }, wxID_DELETE);
 
     menu->Bind(
         wxEVT_MENU, [&](wxCommandEvent& cmdEvent) -> void {
         auto host = *(ServerHost*)m_listViews[GetCurrentTab()]->GetItemData(event.GetIndex());
         gBrowser->AddToFavorites(host);
         gBrowser->SaveSettings();
-    },
-        wxID_ADD);
+    }, wxID_ADD);
 
     PopupMenu(menu.get(), event.GetPoint());
 }

@@ -1,12 +1,13 @@
-#include "pch.hpp"
+#pragma once
 
-#include <wx/listctrl.h>
+#include <wx/wx.h>
 #include <wx/notebook.h>
+#include <wx/listctrl.h>
 
 class ServerInfo;
 class ServerHost;
 
-enum class ListViewTab : uint8_t
+enum class ServerListType : uint8_t
 {
     FAVORITES = 0,
     INTERNET,
@@ -31,17 +32,17 @@ class MyFrame : public wxFrame {
 public:
     MyFrame();
 
-    void AppendServer(ListViewTab tab, ServerInfo* serverInfo);
-    void UpdateServerColumn(ListViewTab tab, const ServerHost& host, ListColumnID id, const String& data);
-    void RemoveServer(ListViewTab tab, const ServerHost& host);
-    void RemoveAllServers(ListViewTab tab);
+    void AppendServer(ServerListType tab, ServerInfo* serverInfo);
+    void UpdateServerColumn(ServerListType tab, const ServerHost& host, ListColumnID id, const std::string& data);
+    void RemoveServer(ServerListType tab, const ServerHost& host);
+    void RemoveAllServers(ServerListType tab);
 
-    ListViewTab GetCurrentTab();
-    void        SetCurrentTab(ListViewTab tab);
+    ServerListType GetCurrentTab();
+    void        SetCurrentTab(ServerListType tab);
 
 private:
     wxNotebook*                                  m_notebook;
-    std::unordered_map<ListViewTab, wxListView*> m_listViews;
+    std::unordered_map<ServerListType, wxListView*> m_listViews;
     wxListView*                                  m_serverRulesListView;
     wxListBox*                                   m_playerListbox;
     wxStaticText*                                m_serverInfoName;
@@ -50,9 +51,9 @@ private:
     wxStaticText*                                m_serverInfoPing;
     wxListItem                                   m_selectedServerItem;
 
-    long FindItemByData(ListViewTab tab, const ServerHost& data);
+    long FindItemByData(ServerListType tab, const ServerHost& data);
 
-    void AddTab(ListViewTab tab, const String& name);
+    void AddTab(ServerListType tab, const std::string& name);
 
     void OnPageChange(wxBookCtrlEvent& event);
     void OnItemSelected(wxListEvent& event);

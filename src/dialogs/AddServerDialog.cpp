@@ -1,4 +1,3 @@
-#include "pch.hpp"
 
 #include "dialogs/AddServerDialog.hpp"
 
@@ -63,7 +62,7 @@ void AddServerDialog::OnCancel(wxCommandEvent&)
 
 void AddServerDialog::OnOK(wxCommandEvent& event)
 {
-    String text = m_input->GetLineText(0).ToStdString();
+    std::string text = m_input->GetLineText(0).ToStdString();
 
     gBrowser->AddToFavorites(ServerHost(text));
     gBrowser->SaveSettings();

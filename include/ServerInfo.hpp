@@ -1,6 +1,13 @@
-#include "pch.hpp"
+#pragma once
 
 #include "ServerHost.hpp"
+
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+using Rules   = std::unordered_map<std::string, std::string>;
+using Players = std::vector<std::string>;
 
 class ServerInfo {
 public:
@@ -13,7 +20,7 @@ public:
         , m_online(false)
     {}
 
-    ServerInfo(String ip, uint16_t port)
+    ServerInfo(std::string ip, uint16_t port)
         : m_host(ServerHost(ip, port))
         , m_name("(Waiting server response...)")
         , m_maxPlayers(0)
@@ -23,21 +30,22 @@ public:
         , m_online(false)
     {}
 
-    struct PlayerInfo
-    {
-        std::string playerName;
-    };
-
-    ServerHost                                   m_host;
-    String                                       m_name;
-    uint32_t                                     m_maxPlayers;
-    bool                                         m_passworded;
-    String                                       m_gamemode;
-    String                                       m_version;
-    Vector<PlayerInfo>                           m_players;
-    std::unordered_map<std::string, std::string> m_rules;
+    ServerHost  m_host;
+    std::string m_name;
+    uint32_t    m_maxPlayers;
+    bool        m_passworded;
+    std::string m_gamemode;
+    std::string m_version;
+    Players     m_players;
+    Rules       m_rules;
 
     time_t    m_lastPlayed;
     long long m_ping;
     bool      m_online;
+
+    void SetAsOffline()
+    {
+        m_online = false;
+        m_ping   = 9999;
+    }
 };

@@ -1,7 +1,3 @@
-#include "main.hpp"
+#include "ServerBrowserApplication.hpp"
 
-#include "MyApp.hpp"
-
-using namespace Universe;
-
-wxIMPLEMENT_APP(MyApp);
+wxIMPLEMENT_APP(ServerBrowserApplication);

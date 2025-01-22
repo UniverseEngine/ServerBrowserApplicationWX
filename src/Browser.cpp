@@ -1,4 +1,3 @@
-
 #include "Browser.hpp"
 #include "MyFrame.hpp"
 
@@ -9,9 +8,92 @@
 
 #include <thread>
 
+#include <cpr/cpr.h>
+
+#include <Core/UniverseLogger.hpp>
+
+#include <format>
+#include <fstream>
+#include <stack>
+
 using json = nlohmann::json;
 
-std::unique_ptr<Browser> gBrowser;
+std::unique_ptr<Browser>     gBrowser;
+std::unique_ptr<std::thread> gRequestThread;
+
+using namespace Universe;
+
+using ErrorCallback    = std::function<void(const std::string&)>;
+using ResponseCallback = std::function<void(const cpr::Response&, ErrorCallback)>;
+
+struct RequestData
+{
+    std::string      url;
+    ResponseCallback callback;
+    ErrorCallback    errorCallback;
+};
+
+class RequestQueue {
+private:
+    std::unique_ptr<std::thread>  m_thread;
+    std::mutex                    m_mutex;
+    std::queue<RequestData>       m_queue;
+    std::unique_ptr<cpr::Session> m_session;
+    std::mutex                    m_sessionMutex;
+
+public:
+    RequestQueue()
+    {
+        m_session = std::make_unique<cpr::Session>();
+        m_session->SetHeader(cpr::Header { { "Content-Type", "application/json" } });
+        m_session->SetTimeout(cpr::Timeout { 3000 });
+
+        m_thread = std::make_unique<std::thread>(&RequestQueue::ProcessQueue, this);
+    }
+
+    void AddRequest(const RequestData& request)
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_queue.push(request);
+    }
+
+    bool IsEmpty()
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_queue.empty();
+    }
+
+    RequestData GetNextRequest()
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        auto                        request = m_queue.front();
+        m_queue.pop();
+        return request;
+    }
+
+    void ProcessQueue()
+    {
+        while (true)
+        {
+            if (!IsEmpty())
+            {
+                auto requestData = GetNextRequest();
+                auto response    = PerformGet(requestData);
+                requestData.callback(response, requestData.errorCallback);
+            }
+        }
+    }
+
+    cpr::Response PerformGet(const RequestData& request)
+    {
+        std::lock_guard<std::mutex> lock(m_sessionMutex);
+        m_session->SetUrl(cpr::Url { request.url });
+        auto response = m_session->Get();
+        return response;
+    };
+};
+
+std::unique_ptr<RequestQueue> gRequestQueue = std::make_unique<RequestQueue>();
 
 LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -23,38 +105,32 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
-Browser::Browser(MyFrame* frame)
-    : m_frame(frame)
-{
-}
-
-Browser::~Browser()
-{
-}
-
 void Browser::QueryServer(std::shared_ptr<ServerInfo> serverInfo)
 {
-    std::thread([=]() {
-        if (!serverInfo)
-            return;
+    // Return if the server info is invalid
+    if (serverInfo->m_host.m_ip.empty() || serverInfo->m_host.m_port == 0)
+    {
+        Logger::Error("How the hell do we even get here? IP or port is empty.");
+        return;
+    }
 
-        std::string url = std::format("http://{}:{}/server", serverInfo->m_host.m_ip, serverInfo->m_host.m_port);
-        std::string jsonStr;
+    auto url = std::format("http://{}:{}/server", serverInfo->m_host.m_ip, serverInfo->m_host.m_port);
 
-        const std::chrono::time_point<std::chrono::system_clock> tp_now = std::chrono::system_clock::now();
+    auto error = [&](const std::string& message) {
+        Logger::Error(message);
+        serverInfo->SetAsOffline();
+    };
 
-        auto result = MakeHttpRequest(url, jsonStr);
-
-        if (result.code != CURLE_OK)
+    auto handleResponse = [&](const cpr::Response& response, std::function<void(const std::string&)> onError) {
+        if (response.error)
         {
-            serverInfo->m_online = false;
-            serverInfo->m_ping   = 9999;
+            onError(std::format("Failed to query server: {}", response.error.message));
             return;
         }
 
         try
         {
-            json data = json::parse(jsonStr);
+            json data = json::parse(response.text);
 
             serverInfo->m_name       = data["name"];
             serverInfo->m_maxPlayers = data["max_players"];
@@ -63,108 +139,71 @@ void Browser::QueryServer(std::shared_ptr<ServerInfo> serverInfo)
             serverInfo->m_version    = data["version"];
 
             serverInfo->m_players.clear();
-            for (int i = 0; i < data["players"].size(); i++)
-            {
-                serverInfo->m_players.push_back({ data["players"][i]["name"] });
-            }
+            std::for_each(data["players"].begin(), data["players"].end(), [&](const auto& player) {
+                serverInfo->m_players.push_back(player.get<std::string>());
+            });
 
             serverInfo->m_rules.clear();
-            for (auto& elems : data["rules"].items())
-            {
+            std::for_each(data["rules"].items().begin(), data["rules"].items().end(), [&](const auto& elems) {
                 serverInfo->m_rules.insert_or_assign(std::string { elems.key() }, std::string { elems.value() });
-            }
+            });
 
-            serverInfo->m_ping   = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - tp_now).count();
+            serverInfo->m_ping   = response.elapsed;
             serverInfo->m_online = true;
 
             m_frame->AppendServer(m_frame->GetCurrentTab(), serverInfo.get());
         }
         catch (std::exception& ex)
         {
-            Logger::Error("Failed to parse server response: {}", ex.what());
-
-            serverInfo->m_online = false;
-            serverInfo->m_ping   = 9999;
+            onError(std::format("Failed to parse server response: {}", ex.what()));
         }
-    }).detach();
+    };
+
+    gRequestQueue->AddRequest({ url, handleResponse, error });
 }
 
-BrowserRequestResult Browser::MakeHttpRequest(const String& url, String& data) const
-{
-    CURL*                curl;
-    BrowserRequestResult result;
-    char                 errbuf[CURL_ERROR_SIZE] = { 0 };
-
-    Logger::Debug("Requesting {}", url);
-
-    curl = curl_easy_init();
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, false);
-    curl_easy_setopt(curl, CURLOPT_CAINFO, "cacert.pem");
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 3);
-
-    // clang-format off
-    curl_easy_setopt(curl, CURLOPT_PROXY, m_settings.proxy.empty() ? nullptr : m_settings.proxy.c_str());
-    curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, errbuf);
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, +[](char* buffer, size_t size, size_t nitems, void* outstream) {
-        size_t realsize = size * nitems;
-        ((String*)outstream)->append(buffer, realsize);
-        return realsize;
-    });
-    // clang-format on
-
-    Logger::Debug("Performing request");
-    result.code = curl_easy_perform(curl);
-    if (result.code != CURLE_OK)
-    {
-        result.errorMessage = curl_easy_strerror(result.code);
-        Logger::Error("Request failed while requesting [{}]: {} ({})", url, result.errorMessage, (int)result.code);
-    }
-    else
-    {
-        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &result.httpCode);
-        Logger::Debug("Request finished with code {}", result.httpCode);
-    }
-
-    curl_easy_setopt(curl, CURLOPT_PROXY, nullptr);
-    curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, nullptr);
-    curl_easy_setopt(curl, CURLOPT_URL, nullptr);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, nullptr);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, nullptr);
-    curl_easy_cleanup(curl);
-
-    return result;
-}
-
-void Browser::LaunchGame(const String& host, uint16_t port)
+void Browser::LaunchGame(const std::string& host, uint16_t port)
 {
     Launcher::LaunchData data = {};
+    {
+        auto game = &data.game;
 
-    data.game.path  = m_settings.gamePath;
-    data.game.title = "III";
-    data.game.arguments.Append("ip", host)
-                       .Append("port", std::to_string(port))
-                       .Append("nickname", m_settings.nickname);
+        auto generateArguments = [&]() -> Launcher::Arguments {
+            Launcher::Arguments args;
 
-    if (m_settings.windowed)
-        data.game.arguments.Append("windowed");
+            args.Append("ip", host);
+            args.Append("port", std::to_string(port));
+            args.Append("nickname", m_settings.nickname);
+            if (m_settings.windowed)
+            {
+                args.Append("windowed");
+            }
 
-    Path curPath = std::filesystem::current_path();
+            return args;
+        };
 
-    data.mods.push_back({ curPath / "IIIGameModule.dll", "IIIGameModule" });
+        game->path      = m_settings.gamePath;
+        game->title     = "III";
+        game->arguments = generateArguments();
 
-    if (m_settings.showConsole)
-        data.mods.push_back({ curPath / "ConsoleModule.dll", "ConsoleModule" });
+        std::filesystem::path curPath = std::filesystem::current_path();
 
-    SetDllDirectory(curPath.wstring().c_str());
+        data.mods.push_back({ curPath / "IIIGameModule.dll", "IIIGameModule" });
+
+        if (m_settings.showConsole)
+        {
+            data.mods.push_back({ curPath / "ConsoleModule.dll", "ConsoleModule" });
+        }
+
+        SetDllDirectory(curPath.wstring().c_str());
+    }
 
     Launcher::LauncherSystem launcher;
     Launcher::LaunchResult   result = launcher.Launch(data);
 
     if (result.first != Launcher::LaunchResultCode::Success)
     {
-        String error_message = fmt::format("Failed to launch the game:\n\n{}", result.second);
+        std::string error_message = std::format("Failed to launch the game:\n\n{}", result.second);
         wxMessageBox(error_message.c_str(), "Error", wxOK | wxICON_ERROR);
     }
 }
@@ -187,7 +226,7 @@ void Browser::SaveSettings()
     data["showConsole"] = m_settings.showConsole;
 
     /* favorites */
-    for (auto& [id, info] : m_serversList[ListViewTab::FAVORITES])
+    for (auto& [id, info] : m_serversList[ServerListType::FAVORITES])
         data["favorites"].push_back(
             { { "ip", info->m_host.m_ip },
                 { "port", info->m_host.m_port } });
@@ -204,7 +243,7 @@ void Browser::LoadSettings()
     if (!stream.is_open())
         return;
 
-    String contents;
+    std::string contents;
     contents.assign(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>());
 
     if (contents.length() == 0)
@@ -214,10 +253,10 @@ void Browser::LoadSettings()
     {
         json data = json::parse(contents);
 
-        m_settings.nickname    = (!data["nickname"].is_string()) ? "" : data["nickname"].get<String>();
-        m_settings.gamePath    = (!data["gamePath"].is_string()) ? "" : data["gamePath"].get<String>();
-        m_settings.proxy       = (!data["proxy"].is_string()) ? "" : data["proxy"].get<String>();
-        m_settings.masterlist  = (!data["masterlist"].is_string()) ? DEFAULT_MASTERLIST : data["masterlist"].get<String>();
+        m_settings.nickname    = (!data["nickname"].is_string()) ? "" : data["nickname"].get<std::string>();
+        m_settings.gamePath    = (!data["gamePath"].is_string()) ? "" : data["gamePath"].get<std::string>();
+        m_settings.proxy       = (!data["proxy"].is_string()) ? "" : data["proxy"].get<std::string>();
+        m_settings.masterlist  = (!data["masterlist"].is_string()) ? gDefaultMasterlistUrl : data["masterlist"].get<std::string>();
         m_settings.windowed    = (!data["windowed"].is_boolean()) ? false : data["windowed"].get<bool>();
         m_settings.showConsole = (!data["showConsole"].is_boolean()) ? false : data["showConsole"].get<bool>();
 
@@ -226,17 +265,17 @@ void Browser::LoadSettings()
             if (!element["ip"].is_string() || !element["port"].is_number())
                 continue; // invalid entry, skip
 
-            String   ip   = element["ip"].get<String>();
-            uint16_t port = element["port"].get<uint16_t>();
+            std::string ip   = element["ip"].get<std::string>();
+            uint16_t    port = element["port"].get<uint16_t>();
 
-            AddToFavorites(ServerHost(element["ip"].get<String>(), element["port"].get<uint16_t>()));
+            AddToFavorites(ServerHost(element["ip"].get<std::string>(), element["port"].get<uint16_t>()));
         }
     }
     catch (json::parse_error& ex)
     {
         wxMessageBox("Failed to parse settings file", "Error", wxOK | wxICON_ERROR);
     }
-    catch (Exception& ex)
+    catch (std::exception& ex)
     {
         wxMessageBox(ex.what(), "Error", wxOK | wxICON_ERROR);
     }
@@ -247,74 +286,84 @@ close:
 
 void Browser::AddToFavorites(const ServerHost& host)
 {
-    m_serversList[ListViewTab::FAVORITES].insert_or_assign(host.ToString(), std::make_shared<ServerInfo>(host.m_ip, host.m_port));
+    m_serversList[ServerListType::FAVORITES].insert_or_assign(host.ToString(), std::make_shared<ServerInfo>(host.m_ip, host.m_port));
 
-    auto& info = m_serversList[ListViewTab::FAVORITES][host.ToString()];
+    auto& info = m_serversList[ServerListType::FAVORITES][host.ToString()];
 
-    m_frame->AppendServer(ListViewTab::FAVORITES, info.get());
+    m_frame->AppendServer(ServerListType::FAVORITES, info.get());
 
     QueryServer(info);
 }
 
 void Browser::RemoveFromFavorites(const ServerHost& host)
 {
-    m_frame->RemoveServer(ListViewTab::FAVORITES, host);
+    m_frame->RemoveServer(ServerListType::FAVORITES, host);
 
-    m_serversList[ListViewTab::FAVORITES].erase(host.ToString());
+    m_serversList[ServerListType::FAVORITES].erase(host.ToString());
 }
 
-void Browser::RequestMasterList(MasterListRequestType type)
+void Browser::GetServersFromMasterlist(ServerListType type)
 {
-    String url = m_settings.masterlist;
+    std::string url = m_settings.masterlist;
 
-    switch (type)
+    if (type == ServerListType::OFFICIAL)
     {
-    case MasterListRequestType::ALL_SERVERS:
-        url += "/servers";
-        break;
-    case MasterListRequestType::OFFICIAL_SERVERS:
         url += "/official";
-        break;
+    }
+    else
+    {
+        url += "/servers";
     }
 
-    String data;
+    std::string data;
 
-    auto result = MakeHttpRequest(url, data);
-    if (result.code != CURLE_OK)
-    {
-        String   errorMessage = std::format("Failed to request masterlist: {}", result.errorMessage);
-        wxString wxErrorMessage(errorMessage.c_str(), wxConvUTF8);
-
-        Logger::Error(errorMessage);
-        wxMessageBox(wxErrorMessage, "Error", wxOK | wxICON_ERROR);
-        return;
-    }
-    else if (result.httpCode != 200)
-    {
-        Logger::Error("Can't get information from master list. HTTP code: {}", result.httpCode);
-        wxMessageBox("Can't get information from master list.", "Error", wxOK | wxICON_ERROR);
-        return;
-    }
-
-    auto& serverList = type == MasterListRequestType::ALL_SERVERS ? m_serversList[ListViewTab::INTERNET] : m_serversList[ListViewTab::OFFICIAL];
-    try
-    {
-        json jsonData = json::parse(data);
-
-        for (auto& element : jsonData)
+    auto handleResponse = [&](const cpr::Response& response, ErrorCallback onError) {
+        if (response.error)
         {
-            auto serverInfo { std::make_shared<ServerInfo>(element["ip"], element["port"]) };
-
-            serverList.insert_or_assign(serverInfo->m_host.ToString(), serverInfo);
+            onError(std::format("Failed to request masterlist: {}", response.error.message));
+            return;
         }
-    }
-    catch (json::parse_error& ex)
-    {
-        Logger::Error("Failed to parse masterlist response: {}", ex.what());
-        wxMessageBox("Can't parse master list data.", "Error", wxOK | wxICON_ERROR);
-        return;
-    }
 
-    for (auto& [id, info] : serverList)
-        QueryServer(info);
+        if (response.status_code != 200)
+        {
+            onError(std::format("Can't get information from master list. HTTP code: {}", response.status_code));
+            return;
+        }
+
+        try
+        {
+            json jsonData = json::parse(response.text);
+
+            if (jsonData.is_array() && jsonData.empty())
+            {
+                Logger::Debug("Masterlist is empty");
+                return;
+            }
+
+            auto& serverList = m_serversList[type];
+
+            for (auto& element : jsonData)
+            {
+                auto serverInfo { std::make_shared<ServerInfo>(element["ip"], element["port"]) };
+
+                serverList.insert_or_assign(serverInfo->m_host.ToString(), serverInfo);
+            }
+
+            for (auto& [id, info] : serverList)
+            {
+                QueryServer(info);
+            }
+        }
+        catch (json::parse_error& ex)
+        {
+            onError(std::format("Failed to parse masterlist response: {}", ex.what()));
+        }
+    };
+
+    gRequestQueue->AddRequest({ url, handleResponse, [&](const std::string& message) {
+        Logger::Error(message);
+        wxMessageBox(message.c_str(), "Error", wxOK | wxICON_ERROR);
+    } });
+
+
 }

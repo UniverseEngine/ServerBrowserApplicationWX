@@ -1,42 +1,41 @@
 #pragma once
 
-#include "pch.hpp"
-
 #include "ServerInfo.hpp"
 
-constexpr auto DEFAULT_MASTERLIST = "https://masterlist.lc-mp.org";
+#include <filesystem>
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+#include <curl/curl.h>
+
+static std::string gDefaultMasterlistUrl = "https://masterlist.lc-mp.org";
 
 class MyFrame;
 
-enum class ListViewTab : uint8_t;
+enum class ServerListType : uint8_t;
 
-enum class MasterListRequestType : uint8_t
+enum class MasterListType : uint8_t
 {
-    ALL_SERVERS,
-    OFFICIAL_SERVERS,
+    SERVERS,
+    OFFICIAL,
 };
 
 class BrowserSettings {
 public:
     BrowserSettings()
-        : masterlist(DEFAULT_MASTERLIST)
+        : masterlist(gDefaultMasterlistUrl)
         , windowed(false)
         , showConsole(false)
     {}
 
-    String nickname;
-    Path   gamePath;
-    String proxy;
-    String masterlist;
-    bool   windowed;
-    bool   showConsole;
-};
-
-struct BrowserRequestResult
-{
-    CURLcode code;
-    int      httpCode;
-    String   errorMessage;
+    std::string           nickname;
+    std::filesystem::path gamePath;
+    std::string           proxy;
+    std::string           masterlist;
+    bool                  windowed;
+    bool                  showConsole;
 };
 
 class Browser {
@@ -44,17 +43,15 @@ public:
     MyFrame*        m_frame;
     BrowserSettings m_settings;
 
-    std::unordered_map<ListViewTab, std::unordered_map<String, std::shared_ptr<ServerInfo>>> m_serversList;
+    std::unordered_map<ServerListType, std::unordered_map<std::string, std::shared_ptr<ServerInfo>>> m_serversList;
 
-    Browser(MyFrame*);
-    ~Browser();
+    Browser(MyFrame* frame)
+        : m_frame(frame) {}
 
-    BrowserRequestResult MakeHttpRequest(const String& url, String& data) const;
-
-    void RequestMasterList(MasterListRequestType type);
+    void GetServersFromMasterlist(ServerListType type);
 
     void QueryServer(std::shared_ptr<ServerInfo> serverInfo);
-    void LaunchGame(const String& host, uint16_t port);
+    void LaunchGame(const std::string& host, uint16_t port);
     void SaveSettings();
     void LoadSettings();
     void AddToFavorites(const ServerHost& host);

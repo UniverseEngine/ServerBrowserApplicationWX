@@ -1,18 +1,23 @@
 #include <wx/wx.h>
+#include <memory>
 
-#include <wx/notebook.h>
+class wxBoxSizer;
+class wxNotebook;
+class wxTextCtrl;
+class wxCheckBox;
 
 class SettingsDialog : public wxDialog {
 public:
-    SettingsDialog(const wxString& title);
+    explicit SettingsDialog(const wxString& title);
 
 private:
-    wxNotebook* m_notebook;
-    wxTextCtrl* m_nicknameInput;
-    wxTextCtrl* m_masterlistInput;
-    wxTextCtrl* m_gamePath;
-    wxCheckBox* m_windowedCheckbox;
-    wxCheckBox* m_showConsoleCheckbox;
+    std::unique_ptr<wxBoxSizer> m_mainSizer;
+    std::unique_ptr<wxNotebook> m_notebook;
+    std::unique_ptr<wxTextCtrl> m_nicknameInput;
+    std::unique_ptr<wxTextCtrl> m_masterlistInput;
+    std::unique_ptr<wxTextCtrl> m_gamePath;
+    std::unique_ptr<wxCheckBox> m_windowedCheckbox;
+    std::unique_ptr<wxCheckBox> m_showConsoleCheckbox;
 
     void OnClose(wxCloseEvent&);
     void OnCheckbox(wxCommandEvent&);
